@@ -17,7 +17,7 @@ export function handleDropEvent(
   event.preventDefault();
 
   const pluginType = event.dataTransfer?.getData('application/plugin-type');
-  if (!pluginType) return;
+  if (!pluginType) {return;}
 
   // 将屏幕坐标转换为画布坐标
   const position: XYPosition = {

@@ -63,7 +63,7 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
-      if (!reactFlowWrapper.current || !reactFlowInstance) return;
+      if (!reactFlowWrapper.current || !reactFlowInstance) {return;}
       const bounds = reactFlowWrapper.current.getBoundingClientRect();
       handleDropEvent(
         event as unknown as DragEvent,
@@ -71,7 +71,7 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
         () => reactFlowInstance.getViewport(),
         (type: string, pos: XYPosition) => {
           addNode(type, pos);
-          if (onAddNode) onAddNode(type, pos);
+          if (onAddNode) {onAddNode(type, pos);}
         }
       );
     },

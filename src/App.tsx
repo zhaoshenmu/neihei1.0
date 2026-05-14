@@ -8,7 +8,7 @@ import { Canvas } from '@/canvas';
 import { Sidebar } from '@/sidebar';
 import { loadAllPlugins } from '@/plugin-system';
 import { theme } from '@/theme/neihei-theme';
-import { setupConsoleCapture, useLogStore } from '@/store/log-store';
+import { setupConsoleCapture } from '@/store/log-store';
 import LogPanel from '@/components/LogPanel';
 import './App.css';
 

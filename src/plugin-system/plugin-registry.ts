@@ -112,7 +112,7 @@ class PluginRegistry {
    */
   setEnabled(type: string, enabled: boolean): boolean {
     const entry = this.plugins.get(type);
-    if (!entry) return false;
+    if (!entry) {return false;}
     entry.enabled = enabled;
     return true;
   }

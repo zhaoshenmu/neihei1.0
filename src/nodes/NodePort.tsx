@@ -6,7 +6,8 @@
  * 注意：标签由 NodeWrapper 统一渲染，此组件只渲染圆点 Handle
  */
 import React, { memo } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import type { Position } from '@xyflow/react';
+import { Handle } from '@xyflow/react';
 import { theme } from '@/theme/neihei-theme';
 
 interface NodePortProps {

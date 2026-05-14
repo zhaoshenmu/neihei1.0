@@ -14,7 +14,7 @@ const Sidebar: React.FC = () => {
   const grouped = manifests.reduce<Record<string, typeof manifests>>(
     (acc, m) => {
       const cat = m.category || '通用';
-      if (!acc[cat]) acc[cat] = [];
+      if (!acc[cat]) {acc[cat] = [];}
       acc[cat].push(m);
       return acc;
     },

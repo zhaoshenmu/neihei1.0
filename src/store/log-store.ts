@@ -36,7 +36,7 @@ function shouldThrottle(message: string): boolean {
   if (messageThrottle.size > 100) {
     const expired = Date.now() - 2000;
     for (const [key, time] of messageThrottle) {
-      if (time < expired) messageThrottle.delete(key);
+      if (time < expired) {messageThrottle.delete(key);}
     }
   }
   return false;
@@ -52,7 +52,7 @@ export const useLogStore = create<LogState>((set) => ({
   
   addLog: (entry) => {
     // 节流：相同消息不重复记录
-    if (shouldThrottle(entry.message)) return;
+    if (shouldThrottle(entry.message)) {return;}
     
     const newEntry: LogEntry = {
       ...entry,

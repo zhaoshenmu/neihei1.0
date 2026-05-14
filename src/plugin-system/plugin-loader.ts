@@ -15,10 +15,59 @@ import type { PluginManifest, PluginLoadResult, PortDefinition } from './plugin-
  * 简化端口定义（manifest.json 中使用）
  * 不需要 type 字段，因为 inputs 数组隐含 input 类型
  */
-interface SimplePortDef {
+export interface SimplePortDef {
   id: string;
   label?: string;
   dataType?: string;
+}
+
+/**
+ * manifest.json 字段校验规则
+ * 运行时校验，防止坏掉的插件文件导致静默失败。
+ * schema 严格程度：开发环境宽容，生产环境严格。
+ */
+const MANIFEST_SCHEMA_RULES: Record<string, { required: boolean; type: string; validator?: (v: unknown) => boolean }> = {
+  type: { required: true, type: 'string', validator: (v) => typeof v === 'string' && v.length > 0 },
+  label: { required: false, type: 'string' },
+  category: { required: false, type: 'string' },
+  icon: { required: false, type: 'string' },
+  description: { required: false, type: 'string' },
+  inputs: { required: false, type: 'array' },
+  outputs: { required: false, type: 'array' },
+};
+
+/**
+ * 校验 manifest 数据是否符合 schema
+ * 返回校验结果，包含所有错误信息
+ */
+function validateManifestSchema(data: Record<string, unknown>): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  for (const [field, rule] of Object.entries(MANIFEST_SCHEMA_RULES)) {
+    const value = data[field];
+
+    // 检查必填字段
+    if (rule.required && (value === undefined || value === null)) {
+      errors.push(`缺少必填字段 "${field}"`);
+      continue;
+    }
+
+    // 值存在时检查类型
+    if (value !== undefined && value !== null) {
+      const actualType = Array.isArray(value) ? 'array' : typeof value;
+      if (actualType !== rule.type) {
+        errors.push(`字段 "${field}" 类型错误：期望 "${rule.type}"，实际 "${actualType}"`);
+        continue;
+      }
+    }
+
+    // 自定义校验
+    if (value !== undefined && value !== null && rule.validator && !rule.validator(value)) {
+      errors.push(`字段 "${field}" 校验失败`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
 }
 
 /**
@@ -53,7 +102,7 @@ function toPortDefs(
   ports: SimplePortDef[] | undefined,
   type: 'input' | 'output'
 ): PortDefinition[] | undefined {
-  if (!ports || !Array.isArray(ports)) return undefined;
+  if (!ports || !Array.isArray(ports)) {return undefined;}
   return ports.map((p) => ({
     id: p.id,
     label: p.label || p.id,
@@ -85,11 +134,13 @@ export function loadAllPlugins(): PluginLoadResult[] {
 
       // 获取 manifest 数据
       const manifestData = manifestModules[manifestPath] as Record<string, unknown>;
-      if (!manifestData || !manifestData.type) {
-        results.push({
-          success: false,
-          error: `manifest 缺少 type 字段: ${manifestPath}`,
-        });
+
+      // 🔒 schema 校验：拒绝坏掉的 manifest 文件
+      const schemaResult = validateManifestSchema(manifestData);
+      if (!schemaResult.valid) {
+        const errorMsg = `manifest schema 校验失败 [${manifestPath}]: ${schemaResult.errors.join('; ')}`;
+        console.error(`  ❌ ${errorMsg}`);
+        results.push({ success: false, error: errorMsg });
         continue;
       }
 
@@ -106,11 +157,11 @@ export function loadAllPlugins(): PluginLoadResult[] {
 
       // 查找对应的组件
       const componentPath = componentPaths.find(p => getFolderName(p) === folderName);
-      const Component = componentPath
-        ? (componentModules[componentPath] as unknown as React.ComponentType | undefined)
+      const rawComponent = componentPath
+        ? (componentModules[componentPath] as unknown)
         : undefined;
 
-      if (!Component) {
+      if (!rawComponent) {
         results.push({
           success: false,
           error: `未找到组件文件: ${folderName}/index.tsx`,
@@ -118,10 +169,23 @@ export function loadAllPlugins(): PluginLoadResult[] {
         continue;
       }
 
+      // 🔒 运行时校验：确保加载的是有效的 React 组件
+      const isValidComponent =
+        typeof rawComponent === 'function' ||
+        (typeof rawComponent === 'object' &&
+          rawComponent !== null &&
+          'render' in rawComponent);
+      if (!isValidComponent) {
+        const errorMsg = `组件文件不是有效的 React 组件 [${folderName}/index.tsx]`;
+        console.error(`  ❌ ${errorMsg}`);
+        results.push({ success: false, error: errorMsg });
+        continue;
+      }
+
       // 注册到注册表
       const result = pluginRegistry.register({
         manifest,
-        component: Component as React.ComponentType<any>,
+        component: rawComponent as React.ComponentType<any>,
       });
 
       if (result.success) {

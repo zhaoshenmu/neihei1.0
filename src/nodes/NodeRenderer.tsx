@@ -10,14 +10,13 @@ import { type NodeProps } from '@xyflow/react';
 import { pluginRegistry } from '@/plugin-system';
 import { withPluginSandbox } from '@/plugin-system';
 import { NodeWrapper } from './NodeWrapper';
-import { theme } from '@/theme/neihei-theme';
 
 /**
  * 画布节点动态渲染组件
  * 通过 React Flow 的 nodeTypes 机制，将所有自定义节点映射到此组件
  */
 export const NodeRenderer: React.FC<NodeProps> = (props) => {
-  const { type, data, selected, id } = props;
+  const { type, data, selected } = props;
 
   // 从注册表中获取该节点类型对应的插件
   const manifest = pluginRegistry.getManifest(type);
@@ -26,7 +25,7 @@ export const NodeRenderer: React.FC<NodeProps> = (props) => {
   // 缓存沙箱组件引用，避免每次渲染创建新组件
   // withPluginSandbox 内部也有缓存，但 useMemo 确保即使缓存失效也不会重复创建
   const SandboxedComponent = useMemo(() => {
-    if (!PluginComponent) return null;
+    if (!PluginComponent) {return null;}
     return withPluginSandbox(
       PluginComponent,
       type,
