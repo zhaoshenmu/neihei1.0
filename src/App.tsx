@@ -10,6 +10,7 @@ import { loadAllPlugins } from '@/plugin-system';
 import { theme } from '@/theme/neihei-theme';
 import { setupConsoleCapture } from '@/store/log-store';
 import LogPanel from '@/components/LogPanel';
+import OutlinePanel from '@/chajian/OutlineNode/OutlinePanel';
 import './App.css';
 
 const App: React.FC = () => {
@@ -68,8 +69,11 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* 底部日志面板 - 高度 300px */}
+      {/* 悬浮日志面板（右下角 <> 按钮控制） */}
       <LogPanel />
+
+      {/* 大纲编辑器悬浮面板（双击 Outline 节点弹出） */}
+      <OutlinePanel />
     </div>
   );
 };

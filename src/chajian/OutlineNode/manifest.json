@@ -1,0 +1,14 @@
+{
+  "type": "outline",
+  "label": "大纲编辑器",
+  "category": "核心",
+  "icon": "📋",
+  "description": "大纲编辑器，显示世界观、主线、人物、卷大纲、章节锚点标题，带信号原点",
+  "inputs": [
+    { "id": "trigger-in", "label": "触发", "dataType": "signal" }
+  ],
+  "outputs": [
+    { "id": "trigger-out", "label": "输出", "dataType": "signal" }
+  ],
+  "defaultData": {}
+}

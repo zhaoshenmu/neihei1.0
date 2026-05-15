@@ -1,0 +1,123 @@
+/**
+ * Outline 节点 - 大纲编辑器
+ * 显示世界观、主线、人物、卷大纲、章节锚点标题
+ * 每行前面带信号原点（AI 执行状态指示）
+ * 双击节点弹出悬浮面板
+ * 
+ * 端口：
+ * - 输入：左上 trigger-in
+ * - 输出：右下 trigger-out（在标签下面）
+ */
+import React, { useCallback } from 'react';
+import type { NodeProps } from '@xyflow/react';
+import { useOutlineStore } from '@/store/outline-store';
+
+/** 信号状态类型 */
+type SignalStatus = 'waiting' | 'active' | 'done';
+
+/** 大纲条目定义 */
+interface OutlineItem {
+  id: string;
+  label: string;
+  status: SignalStatus;
+}
+
+/** 默认大纲条目列表 */
+const DEFAULT_ITEMS: OutlineItem[] = [
+  { id: 'world', label: '世界观', status: 'waiting' },
+  { id: 'mainline', label: '主线', status: 'waiting' },
+  { id: 'character', label: '人物', status: 'waiting' },
+  { id: 'volume', label: '卷大纲', status: 'waiting' },
+  { id: 'chapter', label: '章节锚点', status: 'waiting' },
+];
+
+/** 信号原点颜色映射 */
+const SIGNAL_COLORS: Record<SignalStatus, string> = {
+  waiting: '#4a4a4a',
+  active: '#ff4444',
+  done: '#44cc44',
+};
+
+/** 信号原点发光效果 */
+const SIGNAL_GLOWS: Record<SignalStatus, string> = {
+  waiting: 'none',
+  active: '0 0 6px rgba(255, 68, 68, 0.6)',
+  done: '0 0 6px rgba(68, 204, 68, 0.4)',
+};
+
+const OutlineNode: React.FC<NodeProps> = () => {
+  const openPanel = useOutlineStore((s) => s.openPanel);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    openPanel();
+  }, [openPanel]);
+
+  return (
+    <div
+      onDoubleClick={handleDoubleClick}
+      style={{
+        padding: '6px 4px',
+        color: '#b0b0b0',
+        fontSize: 13,
+        fontFamily: "'Inter', 'Segoe UI', sans-serif",
+        minWidth: 200,
+        maxWidth: 300,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        {DEFAULT_ITEMS.map((item) => (
+          <div
+            key={item.id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '5px 8px',
+              borderRadius: 4,
+              transition: 'background 150ms ease',
+              cursor: 'default',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            <div
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                background: SIGNAL_COLORS[item.status],
+                boxShadow: SIGNAL_GLOWS[item.status],
+                flexShrink: 0,
+                transition: 'all 300ms ease',
+              }}
+            />
+            <span
+              style={{
+                color: '#c8c8c8',
+                fontSize: 13,
+                fontWeight: 400,
+                lineHeight: 1.4,
+                userSelect: 'none',
+              }}
+            >
+              {item.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default OutlineNode;

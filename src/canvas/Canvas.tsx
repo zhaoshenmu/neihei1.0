@@ -85,7 +85,8 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
-      if (event.key === 'Delete' || event.key === 'Backspace') {
+      // 只有 Delete 键删除节点，Backspace 永远不删除节点
+      if (event.key === 'Delete') {
         handleKeyDelete(selectedNodeIds, removeNodes);
       }
       if (event.key === 'Escape') {
@@ -139,7 +140,7 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
         onSelectionChange={onSelectionChange}
         selectionMode={SelectionMode.Partial}
         panOnDrag={[1, 2]}
-        deleteKeyCode={['Delete', 'Backspace']}
+        deleteKeyCode={['Delete']}
         multiSelectionKeyCode="Shift"
         snapToGrid={false}
         minZoom={CANVAS_CONFIG.minZoom}

@@ -101,12 +101,11 @@ html, body, #root {
   opacity: 0.8;
 }
 
-/* 端口悬停效果（CSS 替代 JS 事件，提升性能） */
+/* 端口悬停效果 */
 .neihei-port {
-  transition: background 100ms ease, transform 100ms ease !important;
+  transition: background 100ms ease !important;
 }
 
 .neihei-port:hover {
   background: #8ab4c8 !important;
-  transform: scale(1.3) !important;
 }
