@@ -28,16 +28,23 @@ export interface PluginManifest {
   icon?: string;
   inputs?: PortDefinition[];
   outputs?: PortDefinition[];
+  /** 节点计算代码（可选） 
+   * 在 WebWorker 沙箱中执行，返回纯 JSON
+   * 不提供则节点为纯 UI 节点，不参与计算 */
+  execute?: string;
   defaultData?: Record<string, unknown>;
 }
 
 /**
  * 插件节点运行时接口
  * 每个插件文件必须导出一个符合此接口的对象
+ * component = 画布节点渲染组件
+ * panel = (可选) 节点配置面板组件，用于悬浮窗和工作台
  */
 export interface PluginNodeDefinition {
   manifest: PluginManifest;
   component: React.ComponentType<NodeProps>;
+  panel?: React.ComponentType<{ nodeId: string }>;
 }
 
 /**
@@ -47,6 +54,7 @@ export interface PluginRegistryEntry {
   type: string;
   manifest: PluginManifest;
   component: React.ComponentType<NodeProps>;
+  panel?: React.ComponentType<{ nodeId: string }>;
   enabled: boolean;
   loadedAt: number;
 }

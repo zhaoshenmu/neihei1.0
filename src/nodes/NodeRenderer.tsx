@@ -10,13 +10,16 @@ import { type NodeProps } from '@xyflow/react';
 import { pluginRegistry } from '@/plugin-system';
 import { withPluginSandbox } from '@/plugin-system';
 import { NodeWrapper } from './NodeWrapper';
+import { useCanvasStore } from '@/store/canvas-store';
 
 /**
  * 画布节点动态渲染组件
  * 通过 React Flow 的 nodeTypes 机制，将所有自定义节点映射到此组件
  */
 export const NodeRenderer: React.FC<NodeProps> = (props) => {
-  const { type, data, selected } = props;
+  const { type, data, selected, id } = props;
+  const collapsedNodes = useCanvasStore((s) => s.collapsedNodes);
+  const isCollapsed = collapsedNodes.includes(id);
 
   // 从注册表中获取该节点类型对应的插件
   const manifest = pluginRegistry.getManifest(type);
@@ -53,6 +56,7 @@ export const NodeRenderer: React.FC<NodeProps> = (props) => {
   }
 
   // 渲染包裹了 NodeWrapper 的插件组件
+  // 传递 nodeId 用于执行状态展示
   return (
     <NodeWrapper
       label={manifest?.label || type}
@@ -60,6 +64,9 @@ export const NodeRenderer: React.FC<NodeProps> = (props) => {
       data={data}
       inputs={manifest?.inputs}
       outputs={manifest?.outputs}
+      nodeId={id}
+      collapsed={isCollapsed}
+      shortId={pluginRegistry.getShortId(type) || id.slice(0, 4)}
     >
       <SandboxedComponent {...props} />
     </NodeWrapper>

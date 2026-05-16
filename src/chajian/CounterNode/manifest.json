@@ -9,5 +9,6 @@
   ],
   "outputs": [
     { "id": "value", "label": "数值", "dataType": "number" }
-  ]
+  ],
+  "execute": "// 💥 有意写错的代码，用于测试节点隔离报错\nconst x = undefined;\nreturn { value: x.toString() };"
 }

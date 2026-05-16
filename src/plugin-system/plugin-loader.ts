@@ -87,6 +87,14 @@ const componentModules = import.meta.glob<Record<string, unknown>>(
 );
 
 /**
+ * 动态导入所有插件的 Panel.tsx（面板组件，可选）
+ */
+const panelModules = import.meta.glob<Record<string, unknown>>(
+  '../chajian/*/Panel.tsx',
+  { eager: true, import: 'default' }
+);
+
+/**
  * 从路径中提取文件夹名
  * e.g. '../chajian/HelloNode/manifest.json' => 'HelloNode'
  */
@@ -120,6 +128,7 @@ export function loadAllPlugins(): PluginLoadResult[] {
   // 获取所有插件文件夹名
   const manifestPaths = Object.keys(manifestModules);
   const componentPaths = Object.keys(componentModules);
+  const panelPaths = Object.keys(panelModules);
 
   console.log(`[插件系统] 发现 ${manifestPaths.length} 个 manifest, ${componentPaths.length} 个组件`);
 
@@ -182,10 +191,17 @@ export function loadAllPlugins(): PluginLoadResult[] {
         continue;
       }
 
-      // 注册到注册表
+      // 查找对应的 Panel 组件（可选）
+      const panelPath = panelPaths.find(p => getFolderName(p) === folderName);
+      const rawPanel = panelPath
+        ? (panelModules[panelPath] as unknown)
+        : undefined;
+
+      // 注册到注册表（传入 panel 组件）
       const result = pluginRegistry.register({
         manifest,
         component: rawComponent as React.ComponentType<any>,
+        panel: rawPanel as React.ComponentType<{ nodeId: string }> | undefined,
       });
 
       if (result.success) {

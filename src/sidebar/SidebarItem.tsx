@@ -4,6 +4,7 @@
  */
 import React from 'react';
 import type { PluginManifest } from '@/plugin-system';
+import { pluginRegistry } from '@/plugin-system';
 import { theme } from '@/theme/neihei-theme';
 
 interface SidebarItemProps {
@@ -11,6 +12,7 @@ interface SidebarItemProps {
 }
 
 const SidebarItem: React.FC<SidebarItemProps> = ({ manifest }) => {
+  const shortId = pluginRegistry.getShortId(manifest.type);
   const handleDragStart = (event: React.DragEvent) => {
     event.dataTransfer.setData('application/plugin-type', manifest.type);
     event.dataTransfer.effectAllowed = 'move';
@@ -37,8 +39,8 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ manifest }) => {
         gap: 8,
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = theme.colors.nodeBorder;
-        e.currentTarget.style.background = '#2a2a2a';
+        e.currentTarget.style.borderColor = '#3a3a3a';
+        e.currentTarget.style.background = '#111111';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = theme.colors.inputBorder;
@@ -49,6 +51,20 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ manifest }) => {
       <span style={{ fontSize: 14, opacity: 0.7 }}>
         {manifest.icon || '⬡'}
       </span>
+      
+      {/* 类型 ID */}
+      {shortId && (
+        <span
+          style={{
+            fontSize: 10,
+            color: 'rgba(255,255,255,0.2)',
+            fontWeight: 500,
+            flexShrink: 0,
+          }}
+        >
+          {shortId}
+        </span>
+      )}
       
       {/* 标签 */}
       <span style={{ flex: 1 }}>{manifest.label}</span>

@@ -1,45 +1,48 @@
 /**
- * NeiHei 主题配置 - 黑灰色系（ComfyUI 风格）
- * 所有颜色和尺寸集中管理，方便全局统一调整
+ * NeiHei 主题配置 - 深度暗色统一两色调
+ *
+ * 颜色体系：
+ * - `面板色 #0d0d0d`：所有面板（#1面板、节点面板、弹出面板、侧边栏、工作台面板、顶栏）
+ * - `背景色 #141414`：画布背景、工作台背景（比面板色稍浅一点）
+ * - 边框/分割线 `#1e1e1e`：微弱的边界区分
  */
-
 export const theme = {
   /** 颜色系统 */
   colors: {
-    /** 画布背景 - 深灰黑 */
-    canvasBg: '#1a1a1a',
-    /** 侧边栏背景 */
-    sidebarBg: '#222222',
-    /** 节点背景 */
-    nodeBg: '#2d2d2d',
-    /** 节点标题栏背景 */
-    nodeHeaderBg: '#3a3a3a',
-    /** 节点边框 */
-    nodeBorder: '#4a4a4a',
+    /** 画布背景 - 比面板色稍浅 */
+    canvasBg: '#141414',
+    /** 侧边栏背景 - 统一面板色 */
+    sidebarBg: '#0d0d0d',
+    /** 节点背景 - 统一面板色 */
+    nodeBg: '#0d0d0d',
+    /** 节点标题栏背景 - 比面板稍亮一点 */
+    nodeHeaderBg: '#111111',
+    /** 节点边框 - 微弱边界 */
+    nodeBorder: '#1e1e1e',
     /** 节点选中边框 - 淡蓝灰 */
     nodeBorderSelected: '#6a9fb5',
     /** 节点阴影 */
     shadowColor: 'rgba(0,0,0,0.4)',
-    
+
     /** 端口颜色 - 淡蓝灰 */
     portColor: '#6a9fb5',
     /** 端口悬停颜色 */
     portHoverColor: '#8ac4d8',
-    
+
     /** 主要文字 */
     textPrimary: '#e0e0e0',
     /** 次要文字 */
     textSecondary: '#b0b0b0',
     /** 弱化文字 */
     textMuted: '#808080',
-    
-    /** 按钮背景 */
-    buttonBg: '#333333',
+
+    /** 按钮背景 - 统一面板色 */
+    buttonBg: '#0d0d0d',
     /** 按钮悬停 */
-    buttonHoverBg: '#404040',
+    buttonHoverBg: '#111111',
     /** 输入框边框 */
-    inputBorder: '#3a3a3a',
-    
+    inputBorder: '#1e1e1e',
+
     /** 成功 */
     success: '#4caf50',
     /** 警告 */

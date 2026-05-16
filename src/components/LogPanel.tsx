@@ -99,8 +99,8 @@ const LogPanel: React.FC = () => {
           bottom: 20,
           right: 20,
           width: 40,
-          height: 40,
-          borderRadius: 8,
+          height: 30,
+          borderRadius: 6,
           background: isOpen ? '#2a2a2a' : '#1a1a1a',
           border: `1px solid ${theme.colors.inputBorder}`,
           color: theme.colors.textMuted,
@@ -246,63 +246,61 @@ const LogPanel: React.FC = () => {
                 <div
                   key={log.id}
                   style={{
-                    display: 'flex',
-                    gap: 8,
-                    padding: '3px 16px',
+                    padding: '4px 16px',
                     background: getLogBg(log.type),
                     borderBottom: '1px solid rgba(255,255,255,0.02)',
                   }}
                 >
-                  {/* 时间戳 */}
-                  <span
-                    style={{
-                      color: theme.colors.textMuted,
-                      fontSize: 11,
-                      minWidth: 64,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {log.timestamp}
-                  </span>
-
-                  {/* 类型标签 */}
-                  <span
-                    style={{
-                      color: getLogColor(log.type),
-                      minWidth: 48,
-                      fontSize: 11,
-                      fontWeight: 600,
-                    }}
-                  >
-                    [{log.type.toUpperCase()}]
-                  </span>
-
-                  {/* 消息 */}
-                  <span
-                    style={{
-                      color: getLogColor(log.type),
-                      flex: 1,
-                      wordBreak: 'break-all',
-                    }}
-                  >
-                    {log.message}
-                  </span>
-
-                  {/* 详情 */}
-                  {log.detail && (
+                  {/* 第一行：时间戳 + 类型标签 */}
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 2 }}>
                     <span
                       style={{
                         color: theme.colors.textMuted,
-                        fontSize: 10,
-                        maxWidth: 300,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                        fontSize: 11,
+                        minWidth: 64,
+                        flexShrink: 0,
                       }}
-                      title={log.detail}
                     >
-                      {log.detail}
+                      {log.timestamp}
                     </span>
+                    <span
+                      style={{
+                        color: getLogColor(log.type),
+                        minWidth: 48,
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    >
+                      [{log.type.toUpperCase()}]
+                    </span>
+                  </div>
+
+                  {/* 第二行：消息内容（独占整行，自由换行） */}
+                  <div
+                    style={{
+                      color: getLogColor(log.type),
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                      wordBreak: 'break-word',
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {log.message}
+                  </div>
+
+                  {/* 第三行：详情（如果有） */}
+                  {log.detail && (
+                    <div
+                      style={{
+                        color: theme.colors.textMuted,
+                        fontSize: 11,
+                        marginTop: 2,
+                        wordBreak: 'break-word',
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
+                      └ {log.detail}
+                    </div>
                   )}
                 </div>
               ))

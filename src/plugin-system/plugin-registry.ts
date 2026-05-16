@@ -1,6 +1,9 @@
 /**
  * 插件注册表 - 全局单例
  * 维护所有已注册插件的索引，提供查询和访问接口
+ * 
+ * 每个插件注册时自动分配一个永久类型 ID（001、002、003……）
+ * 所有同类型节点在画布上显示同一个 ID，方便沟通
  */
 import type { 
   PluginNodeDefinition, 
@@ -11,6 +14,8 @@ import type {
 
 class PluginRegistry {
   private plugins: Map<string, PluginRegistryEntry> = new Map();
+  /** 类型 → 短 ID 映射（如 "outline" → "001"） */
+  private shortIds: Map<string, string> = new Map();
   private static instance: PluginRegistry;
 
   private constructor() {}
@@ -25,9 +30,10 @@ class PluginRegistry {
   /**
    * 注册一个插件
    * 支持幂等更新：如果已存在则更新组件，不报错
+   * 首次注册时分配永久类型 ID
    */
   register(pluginDef: PluginNodeDefinition): PluginLoadResult {
-    const { manifest, component } = pluginDef;
+    const { manifest, component, panel } = pluginDef;
     const { type } = manifest;
 
     if (!type || typeof type !== 'string') {
@@ -38,23 +44,56 @@ class PluginRegistry {
     }
 
     if (this.plugins.has(type)) {
-      // 已存在则更新（幂等），HMR 或 StrictMode 双重调用时不会报错
+      // 已存在则更新（幂等）
       const existing = this.plugins.get(type)!;
       existing.component = component;
+      if (panel) existing.panel = panel;
       existing.manifest = manifest;
       existing.loadedAt = Date.now();
       return { success: true, type, plugin: pluginDef };
     }
 
+    // 首次注册，分配永久类型 ID
+    const shortId = this.allocateShortId();
+
     this.plugins.set(type, {
       type,
       manifest,
       component,
+      panel,
       enabled: true,
       loadedAt: Date.now(),
     });
+    this.shortIds.set(type, shortId);
 
+    console.log(`[Registry] 注册插件 "${manifest.label}" → 类型 ID: ${shortId}`);
     return { success: true, type, plugin: pluginDef };
+  }
+
+  /**
+   * 分配一个永久类型 ID（001、002、003……）
+   * 保存在 localStorage，重启不重置
+   */
+  private allocateShortId(): string {
+    let counter: number;
+    try {
+      const raw = localStorage.getItem('neihei-plugin-id-counter');
+      counter = raw ? parseInt(raw, 10) : 0;
+    } catch {
+      counter = 0;
+    }
+    counter += 1;
+    try {
+      localStorage.setItem('neihei-plugin-id-counter', String(counter));
+    } catch {}
+    return String(counter).padStart(3, '0');
+  }
+
+  /**
+   * 获取插件类型的短 ID（用于标题栏显示）
+   */
+  getShortId(type: string): string | undefined {
+    return this.shortIds.get(type);
   }
 
   /**
@@ -69,6 +108,21 @@ class PluginRegistry {
    */
   getComponent(type: string): React.ComponentType<any> | undefined {
     return this.plugins.get(type)?.component;
+  }
+
+  /**
+   * 获取某个插件的 Panel 组件
+   */
+  getPanel(type: string): React.ComponentType<{ nodeId: string }> | undefined {
+    return this.plugins.get(type)?.panel;
+  }
+
+  /**
+   * 检查插件是否有 Panel 组件
+   */
+  hasPanel(type: string): boolean {
+    const entry = this.plugins.get(type);
+    return !!entry?.panel;
   }
 
   /**
@@ -136,6 +190,7 @@ class PluginRegistry {
    */
   clear(): void {
     this.plugins.clear();
+    this.shortIds.clear();
   }
 }
 

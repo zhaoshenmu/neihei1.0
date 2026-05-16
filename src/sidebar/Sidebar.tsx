@@ -28,8 +28,8 @@ const Sidebar: React.FC = () => {
       style={{
         width: theme.spacing.sidebarWidth,
         height: '100%',
-        background: theme.colors.sidebarBg,
-        borderRight: `1px solid ${theme.colors.inputBorder}`,
+        background: '#0d0d0d',
+        borderRight: '1px solid #1e1e1e',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',

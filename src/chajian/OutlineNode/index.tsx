@@ -2,15 +2,12 @@
  * Outline 节点 - 大纲编辑器
  * 显示世界观、主线、人物、卷大纲、章节锚点标题
  * 每行前面带信号原点（AI 执行状态指示）
- * 双击节点弹出悬浮面板
- * 
  * 端口：
  * - 输入：左上 trigger-in
  * - 输出：右下 trigger-out（在标签下面）
  */
-import React, { useCallback } from 'react';
+import React from 'react';
 import type { NodeProps } from '@xyflow/react';
-import { useOutlineStore } from '@/store/outline-store';
 
 /** 信号状态类型 */
 type SignalStatus = 'waiting' | 'active' | 'done';
@@ -46,16 +43,8 @@ const SIGNAL_GLOWS: Record<SignalStatus, string> = {
 };
 
 const OutlineNode: React.FC<NodeProps> = () => {
-  const openPanel = useOutlineStore((s) => s.openPanel);
-
-  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    openPanel();
-  }, [openPanel]);
-
   return (
     <div
-      onDoubleClick={handleDoubleClick}
       style={{
         padding: '6px 4px',
         color: '#b0b0b0',
