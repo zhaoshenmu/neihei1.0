@@ -9,6 +9,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { theme } from '@/theme/neihei-theme';
 import WorldEditorPrompt, { VersionRecord } from './WorldEditorPrompt';
+import { clampPositionWithinCanvas } from '@/utils/canvas-bounds';
+import { usePromptStore, type PromptPanelId } from '@/store/usePromptStore';
 
 interface PromptSquareProps {
   isOpen: boolean;
@@ -48,11 +50,10 @@ interface EditorButton {
 }
 
 const EDITOR_BUTTONS: EditorButton[] = [
-  { id: 'setting', title: '作品设定', subtitle: '创意与视角设定', header: '作品设定', subheader: '填写作品核心创意与叙事视角', defaultContent: '请输入作品的核心理念、创意来源和叙事视角设定...' },
-  { id: 'world', title: '世界构建', subtitle: '地理与世界观', header: '世界构建', subheader: '构筑世界的物理与魔法规则', defaultContent: '请输入世界的地理环境、物理规则、魔法体系、文明分布等设定...' },
-  { id: 'character', title: '人物核心', subtitle: '角色与关系网', header: '人物核心', subheader: '设计主要角色与人物关系', defaultContent: '请输入主要角色设定：姓名、性格、背景、动机、人物关系...' },
-  { id: 'plot', title: '剧情大纲', subtitle: '主线与支线', header: '剧情大纲', subheader: '规划故事主线与分支剧情', defaultContent: '请输入故事的主线剧情、重要转折点、分支选项和结局...' },
-  { id: 'consistency', title: '一致性检查', subtitle: '逻辑校验', header: '一致性检查', subheader: '检查世界观、人设、剧情的一致性', defaultContent: '请输入需要检查一致性的事项，列出可能的矛盾点...' },
+  { id: 'world', title: '世界构建', subtitle: '地理与世界观', header: '世界构建', subheader: '构筑世界的物理与魔法规则', defaultContent: '' },
+  { id: 'character', title: '人物核心', subtitle: '角色与关系网', header: '人物核心', subheader: '设计主要角色与人物关系', defaultContent: '' },
+  { id: 'plot', title: '剧情大纲', subtitle: '主线与支线', header: '剧情大纲', subheader: '规划故事主线与分支剧情', defaultContent: '' },
+  { id: 'consistency', title: '一致性检查', subtitle: '逻辑校验', header: '一致性检查', subheader: '整理所有数据并输出到画布', defaultContent: '' },
 ];
 
 const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
@@ -66,7 +67,10 @@ const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
   const [promptOpen, setPromptOpen] = useState(false);
   const [currentBtn, setCurrentBtn] = useState<EditorButton>(EDITOR_BUTTONS[0]);
 
-// 状态提升：每个按钮独立维护内容 + 版本历史 + 编号
+  // 从 usePromptStore 中加载默认提示词
+  const getPromptFromStore = usePromptStore((s) => s.getPrompt);
+
+  // 状态提升：每个按钮独立维护内容 + 版本历史 + 编号
   const STORAGE_KEY = 'neihei-prompt-square-states';
   const [buttonStates, setButtonStates] = useState<Record<string, EditorButtonState>>(() => {
     try {
@@ -95,14 +99,24 @@ const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
     } catch {}
   }, [buttonStates]);
 
-  // 获取当前按钮状态（如果不存在则初始化）
+  // 获取当前按钮状态（如果不存在或内容为空，则从 usePromptStore 加载默认提示词）
   const getCurrentState = useCallback((): EditorButtonState => {
-    return buttonStates[currentBtn.id] || {
-      content: currentBtn.defaultContent,
-      versions: [],
-      nextId: 1,
+    const existing = buttonStates[currentBtn.id];
+    const promptEntry = getPromptFromStore(currentBtn.id as PromptPanelId);
+    const defaultContent = promptEntry.content || currentBtn.defaultContent;
+
+    // 有自定义内容才返回保存的状态
+    if (existing && existing.content && existing.content.trim()) {
+      return existing;
+    }
+
+    // 无自定义内容时，返回默认提示词（同时保留已有的版本历史）
+    return {
+      content: defaultContent,
+      versions: existing?.versions || [],
+      nextId: existing?.nextId || 1,
     };
-  }, [buttonStates, currentBtn]);
+  }, [buttonStates, currentBtn, getPromptFromStore]);
 
   // 初始化位置（居中）
   useEffect(() => {
@@ -149,14 +163,17 @@ const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
     };
   }, [isOpen, onClose]);
 
-  // 拖拽移动
+  // 拖拽移动（约束到画布容器内）
   useEffect(() => {
     if (!isDragging) return;
     const handleMouseMove = (e: MouseEvent) => {
-      setPosition({
-        x: Math.max(0, Math.min(e.clientX - dragOffset.x, window.innerWidth - PANEL_WIDTH)),
-        y: Math.max(0, Math.min(e.clientY - dragOffset.y, window.innerHeight - PANEL_HEIGHT)),
-      });
+      const clamped = clampPositionWithinCanvas(
+        e.clientX - dragOffset.x,
+        e.clientY - dragOffset.y,
+        PANEL_WIDTH,
+        PANEL_HEIGHT,
+      );
+      setPosition({ x: clamped.x, y: clamped.y });
     };
     const handleMouseUp = () => setIsDragging(false);
     window.addEventListener('mousemove', handleMouseMove);
@@ -170,23 +187,29 @@ const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
   // 当前按钮状态
   const currentState = getCurrentState();
 
-  /** 内容变更 */
+  const setPromptInStore = usePromptStore((s) => s.setPrompt);
+
+  /** 内容变更 - 同时同步到 usePromptStore */
   const handleContentChange = (val: string) => {
     setButtonStates((prev) => ({
       ...prev,
       [currentBtn.id]: {
         ...(prev[currentBtn.id] || {
-          content: currentBtn.defaultContent,
+          content: '',
           versions: [],
           nextId: 1,
         }),
         content: val,
       },
     }));
+    // 同步到 usePromptStore
+    setPromptInStore(currentBtn.id as PromptPanelId, val);
   };
 
-  /** 保存版本 */
+  /** 保存版本 - 同时同步最新内容到 usePromptStore */
   const handleSaveVersion = (newVersion: VersionRecord) => {
+    // 同步到 usePromptStore
+    setPromptInStore(currentBtn.id as PromptPanelId, newVersion.content);
     setButtonStates((prev) => {
       const prevState = prev[currentBtn.id] || {
         content: currentBtn.defaultContent,
@@ -440,7 +463,7 @@ const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
         )}
       </div>
 
-      {/* 弹出提示词面板（受控模式） */}
+      {/* 提示词标签映射：当前按钮 → 目标面板 */}
       <WorldEditorPrompt
         isOpen={promptOpen}
         onClose={() => setPromptOpen(false)}
@@ -453,6 +476,12 @@ const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
         onSaveVersion={handleSaveVersion}
         onSwitchVersion={handleSwitchVersion}
         onDeleteVersion={handleDeleteVersion}
+        targetPanelLabel={
+          currentBtn.id === 'world' ? '人物核心面板' :
+          currentBtn.id === 'character' ? '剧情大纲面板' :
+          currentBtn.id === 'plot' ? '一致性检查面板' :
+          '画布节点'
+        }
       />
     </div>
   );

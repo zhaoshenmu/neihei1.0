@@ -9,39 +9,36 @@
 import React from 'react';
 import type { NodeProps } from '@xyflow/react';
 import { TABS } from './types';
-
-/** 信号状态类型 */
-type SignalStatus = 'waiting' | 'active' | 'done';
-
-/** 大纲条目定义 */
-interface OutlineItem {
-  id: string;
-  label: string;
-  status: SignalStatus;
-}
-
-/** 默认大纲条目列表（从 types TABS 同步，保持与面板标签一致） */
-const DEFAULT_ITEMS: OutlineItem[] = TABS.map((tab) => ({
-  id: tab.id,
-  label: tab.label,
-  status: 'waiting' as SignalStatus,
-}));
+import { useWorldEditorFlowStore } from '@/store/useWorldEditorFlowStore';
+import type { SignalStatus, TabId } from '@/store/useWorldEditorFlowStore';
 
 /** 信号原点颜色映射 */
 const SIGNAL_COLORS: Record<SignalStatus, string> = {
   waiting: '#4a4a4a',
-  active: '#ff4444',
+  running: '#ff69b4',
   done: '#44cc44',
 };
 
 /** 信号原点发光效果 */
 const SIGNAL_GLOWS: Record<SignalStatus, string> = {
   waiting: 'none',
-  active: '0 0 6px rgba(255, 68, 68, 0.6)',
+  running: '0 0 6px rgba(255, 105, 180, 0.6)',
   done: '0 0 6px rgba(68, 204, 68, 0.4)',
 };
 
 const OutlineNode: React.FC<NodeProps> = () => {
+  // 从 store 中读取每个标签页的运行状态
+  const stepStatus = useWorldEditorFlowStore((s) => s.stepStatus);
+  // 同步 TABS 并读取实时状态
+  const items = React.useMemo(() => 
+    TABS.map((tab) => ({
+      id: tab.id,
+      label: tab.label,
+      status: stepStatus[tab.id as TabId] || 'waiting',
+    })),
+    [stepStatus]
+  );
+
   return (
     <div
       style={{
@@ -51,16 +48,21 @@ const OutlineNode: React.FC<NodeProps> = () => {
         fontFamily: "'Inter', 'Segoe UI', sans-serif",
         minWidth: 200,
         maxWidth: 300,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
       }}
     >
+      {/* 左侧列表 */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
+          flex: 1,
         }}
       >
-        {DEFAULT_ITEMS.map((item) => (
+        {items.map((item) => (
           <div
             key={item.id}
             style={{
@@ -104,6 +106,7 @@ const OutlineNode: React.FC<NodeProps> = () => {
           </div>
         ))}
       </div>
+
     </div>
   );
 };

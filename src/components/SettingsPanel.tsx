@@ -12,6 +12,7 @@ import SettingsSidebar from '@/components/settings/SettingsSidebar';
 import { NAV_ITEMS } from '@/components/settings/types';
 import ShortcutEditor from '@/components/ShortcutEditor';
 import { useSettingsStore, type EdgeLineStyle } from '@/store/settings-store';
+import { clampPositionWithinCanvas } from '@/utils/canvas-bounds';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -52,14 +53,17 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  // 拖拽移动
+  // 拖拽移动（约束到画布容器内）
   useEffect(() => {
     if (!isDragging) return;
     const handleMouseMove = (e: MouseEvent) => {
-      setPosition({
-        x: Math.max(0, Math.min(e.clientX - dragOffset.x, window.innerWidth - PANEL_WIDTH)),
-        y: Math.max(0, Math.min(e.clientY - dragOffset.y, window.innerHeight - PANEL_HEIGHT)),
-      });
+      const clamped = clampPositionWithinCanvas(
+        e.clientX - dragOffset.x,
+        e.clientY - dragOffset.y,
+        PANEL_WIDTH,
+        PANEL_HEIGHT,
+      );
+      setPosition({ x: clamped.x, y: clamped.y });
     };
     const handleMouseUp = () => setIsDragging(false);
     window.addEventListener('mousemove', handleMouseMove);

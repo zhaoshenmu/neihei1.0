@@ -2,10 +2,13 @@
  * 日志面板组件 - 悬浮窗口形式
  * 界面右下角有一个 <> 按钮，点击弹出悬浮日志窗口
  * 四角圆角，可拖动，可关闭
+ * 
+ * 拖拽受 canvas-bounds 约束，不会拖出画布容器以外
  */
 import React, { useRef, useEffect, useState } from 'react';
 import { useLogStore, type LogEntry } from '@/store/log-store';
 import { theme } from '@/theme/neihei-theme';
+import { clampPositionWithinCanvas } from '@/utils/canvas-bounds';
 
 const PANEL_WIDTH = 480;
 const PANEL_HEIGHT = 360;
@@ -26,13 +29,13 @@ const LogPanel: React.FC = () => {
     }
   }, [logs, isOpen]);
 
-  // 窗口大小变化时调整位置
+  // 窗口大小变化时重新约束位置到画布容器内
   useEffect(() => {
     const handleResize = () => {
-      setPosition(prev => ({
-        x: Math.min(prev.x, window.innerWidth - PANEL_WIDTH - 20),
-        y: Math.min(prev.y, window.innerHeight - PANEL_HEIGHT - 20),
-      }));
+      setPosition(prev => {
+        const clamped = clampPositionWithinCanvas(prev.x, prev.y, PANEL_WIDTH, PANEL_HEIGHT);
+        return { x: clamped.x, y: clamped.y };
+      });
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -66,15 +69,18 @@ const LogPanel: React.FC = () => {
     }
   };
 
-  // 拖拽移动
+  // 拖拽移动（约束到画布容器内）
   useEffect(() => {
     if (!isDragging) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      setPosition({
-        x: Math.max(0, Math.min(e.clientX - dragOffset.x, window.innerWidth - PANEL_WIDTH)),
-        y: Math.max(0, Math.min(e.clientY - dragOffset.y, window.innerHeight - PANEL_HEIGHT)),
-      });
+      const clamped = clampPositionWithinCanvas(
+        e.clientX - dragOffset.x,
+        e.clientY - dragOffset.y,
+        PANEL_WIDTH,
+        PANEL_HEIGHT,
+      );
+      setPosition({ x: clamped.x, y: clamped.y });
     };
 
     const handleMouseUp = () => {

@@ -8,6 +8,7 @@ import { useCanvasStore } from './canvas-store';
 import { useExecutionStore } from './execution-store';
 import { usePanelDataStore } from './usePanelDataStore';
 import { useStickyPanelStore } from './useStickyPanelStore';
+import { useWorldEditorFlowStore } from './useWorldEditorFlowStore';
 
 interface AppStore {
   /** 新建全部：清空所有数据，保留已保存的工作流 */
@@ -26,5 +27,7 @@ export const useAppStore = create<AppStore>(() => ({
     allNodeIds.forEach((id) => panelDataStore.removeNodeData(id));
     // 清空置顶面板
     useStickyPanelStore.getState().clearAll();
+    // 重置世界编辑器流程（强制手动模式，防止从localStorage恢复auto后自动运行）
+    useWorldEditorFlowStore.getState().reset();
   },
 }));

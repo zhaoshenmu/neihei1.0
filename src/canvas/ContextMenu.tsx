@@ -6,8 +6,9 @@
  * 
  * 后续功能扩展：向 items 数组添加新项即可，无需修改组件
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { theme } from '@/theme/neihei-theme';
+import { getCanvasBounds } from '@/utils/canvas-bounds';
 
 export interface ContextMenuItem {
   label: string;
@@ -53,17 +54,30 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  // 确保不超出视口
-  const adjustedX = Math.min(x, window.innerWidth - 180);
-  const adjustedY = Math.min(y, window.innerHeight - items.length * 36 - 16);
+  // 确保不超出画布容器
+  const adjustedPos = useMemo(() => {
+    const menuW = 180;
+    const menuH = items.length * 36 + 16;
+    const bounds = getCanvasBounds();
+    if (bounds) {
+      const clampedX = Math.max(bounds.left + 4, Math.min(x, bounds.right - menuW - 4));
+      const clampedY = Math.max(bounds.top + 4, Math.min(y, bounds.bottom - menuH - 4));
+      return { x: clampedX, y: clampedY };
+    }
+    // 回退到视口约束
+    return {
+      x: Math.min(x, window.innerWidth - menuW),
+      y: Math.min(y, window.innerHeight - menuH),
+    };
+  }, [x, y, items.length]);
 
   return (
     <div
       ref={ref}
       style={{
         position: 'fixed',
-        left: adjustedX,
-        top: adjustedY,
+        left: adjustedPos.x,
+        top: adjustedPos.y,
         background: '#0d0d0d',
         border: `1px solid ${theme.colors.inputBorder}`,
         borderRadius: 8,

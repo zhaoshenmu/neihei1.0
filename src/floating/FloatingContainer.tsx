@@ -14,6 +14,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Draggable from 'react-draggable';
 import { createPortal } from 'react-dom';
 import { theme } from '@/theme/neihei-theme';
+import { getCanvasBounds, clampPositionWithinCanvas } from '@/utils/canvas-bounds';
 
 interface FloatingContainerProps {
   children: React.ReactNode;
@@ -85,7 +86,7 @@ export function FloatingContainer({
   });
   const [size, setSize] = useState({ width: defaultWidth, height: defaultHeight });
 
-  // ── resize 手动拖拽 ──
+  // ── resize 手动拖拽（约束到画布容器内） ──
   const resizing = useRef(false);
   const startPos = useRef({ x: 0, y: 0 });
   const startSize = useRef({ w: 0, h: 0 });
@@ -109,12 +110,26 @@ export function FloatingContainer({
       if (maxWidth !== undefined) newW = Math.min(maxWidth, newW);
       newH = Math.max(minHeight, newH);
       if (maxHeight !== undefined) newH = Math.min(maxHeight, newH);
-      setSize({ width: newW, height: newH });
+      
+      // 约束 resize 不超出画布容器右/下边界
+      const bounds = getCanvasBounds();
+      if (bounds) {
+        const maxPossibleW = bounds.right - position.x - 4;
+        const maxPossibleH = bounds.bottom - position.y - 4;
+        newW = Math.min(newW, maxPossibleW, maxWidth ?? Infinity);
+        newH = Math.min(newH, maxPossibleH, maxHeight ?? Infinity);
+      }
+      
+      setSize({ width: Math.max(minWidth, newW), height: Math.max(minHeight, newH) });
     };
     const onMouseUp = () => {
       if (!resizing.current) return;
       resizing.current = false;
-      onResizeStop?.(size.width, size.height);
+      // 使用最新的 size（通过闭包获取最新值）
+      setSize(prev => {
+        onResizeStop?.(prev.width, prev.height);
+        return prev;
+      });
     };
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
@@ -122,16 +137,20 @@ export function FloatingContainer({
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [onResizeStop, size]);
+  }, [onResizeStop, size, position.x, position.y, minWidth, minHeight, maxWidth, maxHeight]);
 
   const handleDrag = useCallback((_e: any, data: { x: number; y: number }) => {
-    setPosition({ x: data.x, y: data.y });
-  }, []);
+    // 拖拽过程中实时约束位置到画布容器内
+    const clamped = clampPositionWithinCanvas(data.x, data.y, size.width, size.height);
+    setPosition({ x: clamped.x, y: clamped.y });
+  }, [size]);
 
   const handleDragStop = useCallback((_e: any, data: { x: number; y: number }) => {
-    setPosition({ x: data.x, y: data.y });
-    onDragStop?.(data.x, data.y);
-  }, [onDragStop]);
+    // 停止拖拽时确保位置在画布容器内
+    const clamped = clampPositionWithinCanvas(data.x, data.y, size.width, size.height);
+    setPosition({ x: clamped.x, y: clamped.y });
+    onDragStop?.(clamped.x, clamped.y);
+  }, [onDragStop, size]);
 
   return createPortal(
     <Draggable
@@ -139,6 +158,7 @@ export function FloatingContainer({
       position={position}
       onDrag={handleDrag}
       onStop={handleDragStop}
+      cancel="input, textarea, [contenteditable], [data-no-drag]"
     >
       <div
         ref={nodeRef}

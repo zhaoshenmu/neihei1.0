@@ -8,7 +8,7 @@
  * - 置顶按钮始终显示（除非对应的面板已置顶）
  * - 置顶面板关闭后，再次双击可重新弹出
  */
-import React, { useCallback, useRef, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useRef, useMemo, useState } from 'react';
 import {
   ReactFlow,
   Background,

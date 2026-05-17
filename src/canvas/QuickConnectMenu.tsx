@@ -6,9 +6,10 @@
  * - 从输出口(source)拖出 → 显示有输入口的节点（亮色可点），无输入口的灰色
  * - 从输入口(target)拖出 → 显示有输出口的节点（亮色可点），无输出口的灰色
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { pluginRegistry } from '@/plugin-system/plugin-registry';
 import { theme } from '@/theme/neihei-theme';
+import { getCanvasBounds } from '@/utils/canvas-bounds';
 
 interface QuickConnectMenuProps {
   /** 菜单位置（屏幕坐标） */
@@ -78,13 +79,27 @@ const QuickConnectMenu: React.FC<QuickConnectMenuProps> = ({ x, y, onSelect, onC
     return null;
   };
 
+  // 确保不超出画布容器
+  const adjustedPos = useMemo(() => {
+    const menuW = 200;
+    const menuH = manifests.length * 36 + 40;
+    const bounds = getCanvasBounds();
+    if (bounds) {
+      return {
+        x: Math.max(bounds.left + 4, Math.min(x, bounds.right - menuW - 4)),
+        y: Math.max(bounds.top + 4, Math.min(y, bounds.bottom - menuH - 4)),
+      };
+    }
+    return { x, y };
+  }, [x, y, manifests.length]);
+
   return (
     <div
       ref={menuRef}
       style={{
         position: 'fixed',
-        left: x,
-        top: y,
+        left: adjustedPos.x,
+        top: adjustedPos.y,
         zIndex: 9999,
         background: theme.colors.nodeBg,
         border: `1px solid ${theme.colors.inputBorder}`,

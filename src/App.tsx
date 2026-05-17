@@ -34,20 +34,36 @@ import { callAi } from '@/services/ai-service';
 import { useLogStore } from '@/store/log-store';
 import { useApiConnectionStore } from '@/store/api-connection-store';
 import { useExecutionStore } from '@/store/execution-store';
+import { useWorldEditorFlowStore } from '@/store/useWorldEditorFlowStore';
 
 const App: React.FC = () => {
   const [pluginLoaded, setPluginLoaded] = useState(false);
   const consoleCaptureRef = useRef<(() => void) | null>(null);
   const [activeTab, setActiveTab] = useState<VaultTab | null>(null);
+  const [runState, setRunState] = useState<'idle' | 'running'>('idle');
 
-  /** 点击「▶ 运行」按钮时触发：遍历所有边，提取源节点text → 调AI → 写入目标节点aiOutput */
+  /** 点击「▶ 运行」按钮时触发 */
   const handleRun = async () => {
-    const { nodes, edges } = useCanvasStore.getState();
+    const { nodes } = useCanvasStore.getState();
     const addLog = useLogStore.getState().addLog;
+
+    // 检测画布上是否有 OutlineNode（世界编辑器）
+    const outlineNode = nodes.find((n) => n.type === 'outline' || n.type?.includes('Outline'));
+    
+    if (outlineNode) {
+      // 触发世界编辑器流程
+      addLog({ type: 'info', message: '[运行] 检测到世界编辑器节点，启动流程...' });
+      useWorldEditorFlowStore.getState().triggerExternalRun();
+      return;
+    }
+
+    // 原有逻辑：遍历所有边，提取源节点text → 调AI → 写入目标节点aiOutput
+    const { edges } = useCanvasStore.getState();
     const execStore = useExecutionStore.getState();
 
     if (edges.length === 0) {
       addLog({ type: 'info', message: '[运行] 没有连线，跳过' });
+      setRunState('idle');
       return;
     }
 
@@ -118,6 +134,7 @@ const App: React.FC = () => {
     }
 
     addLog({ type: 'success', message: '[运行] 全部处理完成' });
+    setRunState('idle');
   };
 
   useEffect(() => {
@@ -149,6 +166,21 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // 监听世界编辑器流程的 isRunning 状态，同步到 runState
+  const flowIsRunning = useWorldEditorFlowStore((s) => s.isRunning);
+  useEffect(() => {
+    // 当编辑器流程在运行时，按钮置为 running；空闲时恢复 idle
+    // 但只有当 we are in editor mode (有outline节点) 时才同步
+    const { nodes } = useCanvasStore.getState();
+    const hasOutlineNode = nodes.some((n) => n.type === 'outline' || n.type?.includes('Outline'));
+    if (hasOutlineNode) {
+      setRunState(flowIsRunning ? 'running' : 'idle');
+    }
+  }, [flowIsRunning]);
+
+  // 监听非编辑器流程的完成（原始节点流程在 handleRun 末尾自行 setState）
+  // 这个 useEffect 只负责编辑器模式下的同步
+
   return (
     <div
       style={{
@@ -161,7 +193,11 @@ const App: React.FC = () => {
       }}
     >
       {/* 顶部标题栏（全宽横条，固定高度，带底部分隔线） */}
-      <TopToolbar onRun={handleRun} />
+      <TopToolbar 
+        onRun={handleRun} 
+        runState={runState}
+        onRunStateChange={(state) => setRunState(state)}
+      />
 
       {/* ── 画布模式（唯一模式） ── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
@@ -169,7 +205,7 @@ const App: React.FC = () => {
         <VaultPanel activeTab={activeTab} onTabChange={setActiveTab} />
 
         {/* 右侧区域：画布铺满，面板绝对定位浮在画布上 */}
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <div data-canvas-container style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           {/* 节点侧边栏 — 绝对定位，不占布局，不推动画布 */}
           {activeTab === 'nodes' && (
             <div

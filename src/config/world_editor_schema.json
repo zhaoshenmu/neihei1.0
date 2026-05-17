@@ -1,0 +1,59 @@
+{
+  "panels": [
+    {
+      "id": "setting",
+      "label": "作品设定",
+      "fields": [
+        { "key": "creativeIdea", "label": "填入创意", "type": "textarea", "placeholder": "输入您的创意..." },
+        { "key": "perspective", "label": "叙事视角", "type": "radio", "options": ["第一人称", "第三人称"] },
+        { "key": "protagonistGender", "label": "主角性别", "type": "radio", "options": ["男性", "女性"] },
+        { "key": "protagonistName", "label": "主角名字", "type": "text", "placeholder": "请输入主角名字..." },
+        { "key": "style", "label": "风格选择", "type": "select", "options": ["番茄爽文", "传统文学", "轻小说", "悬疑推理", "玄幻修真"] },
+        { "key": "chapterWordCount", "label": "每章规划字数区间", "type": "select", "options": ["1000-2000字", "2000-3000字", "3000-5000字", "5000-8000字"] },
+        { "key": "totalWordCount", "label": "总字数", "type": "text", "placeholder": "请输入总字数..." }
+      ]
+    },
+    {
+      "id": "world",
+      "label": "世界构建",
+      "fields": [
+        { "key": "powerSystem", "label": "力量体系", "type": "textarea", "placeholder": "请输入内容..." },
+        { "key": "physicsRules", "label": "物理规则", "type": "textarea", "placeholder": "请输入内容..." },
+        { "key": "magicTech", "label": "魔法/科技机制", "type": "textarea", "placeholder": "请输入内容..." },
+        { "key": "politicalSystem", "label": "政治体制", "type": "textarea", "placeholder": "请输入内容..." },
+        { "key": "economyMode", "label": "经济模式", "type": "textarea", "placeholder": "请输入内容..." },
+        { "key": "classSystem", "label": "阶级系统", "type": "textarea", "placeholder": "请输入内容..." },
+        { "key": "conflict", "label": "冲突", "type": "textarea", "placeholder": "请输入内容..." }
+      ]
+    },
+    {
+      "id": "character",
+      "label": "人物核心",
+      "fields": [
+        { "key": "characters", "label": "主要角色列表", "type": "character-list" },
+        { "key": "desire", "label": "欲望", "type": "textarea", "placeholder": "请输入欲望..." },
+        { "key": "flaw", "label": "缺陷", "type": "textarea", "placeholder": "请输入缺陷..." },
+        { "key": "arc", "label": "弧光", "type": "textarea", "placeholder": "请输入弧光..." }
+      ]
+    },
+    {
+      "id": "plot",
+      "label": "剧情大纲",
+      "fields": [
+        { "key": "synopsis", "label": "故事总纲", "type": "textarea", "placeholder": "请输入故事总纲..." },
+        { "key": "actSummary", "label": "本幕核心概要", "type": "textarea", "placeholder": "请输入本幕核心概要..." },
+        { "key": "actDetail", "label": "本幕具体剧情展开", "type": "textarea", "placeholder": "请输入本幕具体剧情展开..." }
+      ]
+    },
+    {
+      "id": "consistency",
+      "label": "一致性检查",
+      "fields": [
+        { "key": "characterConsistency", "label": "人物一致性", "type": "score", "max": 10 },
+        { "key": "worldConsistency", "label": "世界观一致性", "type": "score", "max": 10 },
+        { "key": "plotLogic", "label": "情节逻辑", "type": "score", "max": 10 },
+        { "key": "timeline", "label": "时间线", "type": "score", "max": 10 }
+      ]
+    }
+  ]
+}

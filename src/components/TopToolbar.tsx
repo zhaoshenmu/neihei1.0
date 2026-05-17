@@ -7,10 +7,10 @@
  * 按钮布局（从左到右）：
  * [▶ 运行] [提示词广场] [管理器] [新建] [书架]
  *
- * 设计原则：
- * - 全宽横条，底部有分隔线
- * - 按钮靠左排列
- * - 纯文字按钮（仅运行保留图标）
+ * 运行按钮逻辑：
+ * - idle（灰色）：可点击，点击后变 running
+ * - running（绿色）：运行中，不可点击，等待流程完成
+ * - 由 App 层通过 onRunStateChange 控制恢复 idle
  */
 import React, { useState } from 'react';
 import { theme } from '@/theme/neihei-theme';
@@ -31,6 +31,10 @@ interface TopToolbarProps {
   onRun?: () => void;
   /** 额外按钮（由 App 层传入） */
   extraActions?: ToolbarAction[];
+  /** 运行状态（由父组件控制，用于流程完成后恢复灰色） */
+  runState?: 'idle' | 'running';
+  /** 运行状态变化回调 */
+  onRunStateChange?: (state: 'idle' | 'running') => void;
 }
 
 const btnBase: React.CSSProperties = {
@@ -45,21 +49,28 @@ const btnBase: React.CSSProperties = {
   fontFamily: theme.fontFamily.sans,
 };
 
-const TopToolbar: React.FC<TopToolbarProps> = ({ onRun, extraActions }) => {
+const TopToolbar: React.FC<TopToolbarProps> = ({ onRun, extraActions, runState: externalRunState, onRunStateChange }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [runState, setRunState] = useState<'idle' | 'running'>('idle');
+  const [internalRunState, setInternalRunState] = useState<'idle' | 'running'>('idle');
   const resetAll = useAppStore((s) => s.resetAll);
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [nodeListOpen, setNodeListOpen] = useState(false);
   const [promptSquareOpen, setPromptSquareOpen] = useState(false);
 
+  // 使用外部状态（如果提供），否则用内部状态
+  const runState = externalRunState || internalRunState;
+
   const handleRun = () => {
     if (runState === 'running') return;
-    setRunState('running');
+    // 如果没有外部状态控制，用内部状态
+    if (!externalRunState) {
+      setInternalRunState('running');
+    }
+    onRunStateChange?.('running');
     onRun?.();
-    setTimeout(() => setRunState('idle'), 2000);
   };
 
+  /** 供父组件调用的完成方法（通过 ref 或 props 回调） */
   const handleNew = () => {
     resetAll();
     setNewDialogOpen(false);
