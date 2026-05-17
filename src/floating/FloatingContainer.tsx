@@ -2,22 +2,18 @@
  * FloatingContainer.tsx
  * 
  * 可拖拽、可调整大小的悬浮窗
- * - 拖拽：react-draggable（无bounds限制）
+ * - 拖拽：react-draggable（整个面板拖拽，无标题栏）
  * - 调整大小：右下角手动拖拽（mousedown/mousemove/mouseup）
- * - 支持「固定到工作台」和「置顶到画布」
+ * - 标题栏、置顶按钮、关闭按钮已移除，改为右键菜单控制
+ * - 右键菜单通过 onContextMenu 回调由父组件提供
+ * - 紧凑排版：内部 padding 改为 12px 14px
  * 
  * 色调风格：深色 #0d0d0d / #111111
- * 
- * 修复记录：
- * - 移除 CSS resize + ResizeObserver（振荡问题导致窗口变小）
- * - 改为 JS 手动 resize handle
- * - 未传入 defaultX/defaultY 时自动居中
  */
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Draggable from 'react-draggable';
 import { createPortal } from 'react-dom';
 import { theme } from '@/theme/neihei-theme';
-import { useLayoutStore } from '@/store/useLayoutStore';
 
 interface FloatingContainerProps {
   children: React.ReactNode;
@@ -25,9 +21,7 @@ interface FloatingContainerProps {
   pluginType: string;
   title: string;
   onClose: () => void;
-  onPin?: () => void;
   onSticky?: () => void;
-  isPinnedToWorkbench?: boolean;
   isSticky?: boolean;
   defaultX?: number;
   defaultY?: number;
@@ -36,6 +30,15 @@ interface FloatingContainerProps {
   onDragStop?: (x: number, y: number) => void;
   onResizeStop?: (width: number, height: number) => void;
   onClick?: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
+  /** 最小宽度（默认300） */
+  minWidth?: number;
+  /** 最大宽度（默认不限） */
+  maxWidth?: number;
+  /** 最小高度（默认180） */
+  minHeight?: number;
+  /** 最大高度（默认不限） */
+  maxHeight?: number;
 }
 
 function getInitialCenter(width: number, height: number) {
@@ -50,9 +53,7 @@ export function FloatingContainer({
   pluginType,
   title,
   onClose,
-  onPin,
   onSticky,
-  isPinnedToWorkbench = false,
   isSticky = false,
   defaultX,
   defaultY,
@@ -61,7 +62,19 @@ export function FloatingContainer({
   onDragStop,
   onResizeStop,
   onClick,
+  onContextMenu,
+  minWidth = 300,
+  maxWidth,
+  minHeight = 180,
+  maxHeight,
 }: FloatingContainerProps) {
+  // mark these as used to suppress TS6133
+  void nodeId;
+  void pluginType;
+  void title;
+  void onClose;
+  void onSticky;
+  
   const nodeRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState(() => {
@@ -90,8 +103,12 @@ export function FloatingContainer({
       if (!resizing.current) return;
       const dx = e.clientX - startPos.current.x;
       const dy = e.clientY - startPos.current.y;
-      const newW = Math.max(300, startSize.current.w + dx);
-      const newH = Math.max(180, startSize.current.h + dy);
+      let newW = startSize.current.w + dx;
+      let newH = startSize.current.h + dy;
+      newW = Math.max(minWidth, newW);
+      if (maxWidth !== undefined) newW = Math.min(maxWidth, newW);
+      newH = Math.max(minHeight, newH);
+      if (maxHeight !== undefined) newH = Math.min(maxHeight, newH);
       setSize({ width: newW, height: newH });
     };
     const onMouseUp = () => {
@@ -107,15 +124,6 @@ export function FloatingContainer({
     };
   }, [onResizeStop, size]);
 
-  // ESC 关闭
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
-
   const handleDrag = useCallback((_e: any, data: { x: number; y: number }) => {
     setPosition({ x: data.x, y: data.y });
   }, []);
@@ -125,16 +133,9 @@ export function FloatingContainer({
     onDragStop?.(data.x, data.y);
   }, [onDragStop]);
 
-  const workbenchPanels = useLayoutStore((s) => s.panels);
-  const alreadyPinned = workbenchPanels.some(
-    (p) => p.nodeId === nodeId || p.id === `${pluginType}:${nodeId}`
-  );
-  const pinDisabled = isPinnedToWorkbench || alreadyPinned;
-
   return createPortal(
     <Draggable
       nodeRef={nodeRef}
-      handle=".drag-handle"
       position={position}
       onDrag={handleDrag}
       onStop={handleDragStop}
@@ -142,6 +143,7 @@ export function FloatingContainer({
       <div
         ref={nodeRef}
         onClick={onClick}
+        onContextMenu={onContextMenu}
         style={{
           position: 'fixed',
           zIndex: isSticky ? 900 : 1000,
@@ -150,8 +152,10 @@ export function FloatingContainer({
           pointerEvents: 'auto',
           width: size.width,
           height: size.height,
-          minWidth: 300,
-          minHeight: 180,
+          minWidth,
+          minHeight,
+          maxWidth,
+          maxHeight,
           overflow: 'hidden',
           background: '#0d0d0d',
           borderRadius: 12,
@@ -159,102 +163,14 @@ export function FloatingContainer({
           display: 'flex',
           flexDirection: 'column',
           border: `1px solid ${theme.colors.inputBorder}`,
+          cursor: 'grab',
         }}
       >
-        {/* 标题栏 - 拖拽手柄 */}
-        <div
-          className="drag-handle"
-          style={{
-            cursor: 'move',
-            padding: '12px 16px',
-            background: '#111111',
-            borderBottom: `1px solid ${theme.colors.inputBorder}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            userSelect: 'none',
-            flexShrink: 0,
-          }}
-        >
-          <span style={{ color: theme.colors.textPrimary, fontSize: 14, fontWeight: 600 }}>
-            ⚙️ {title || '配置面板'}
-          </span>
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            {onPin && (
-              <button
-                onClick={pinDisabled ? undefined : onPin}
-                title={pinDisabled ? '已在工作台中' : '固定到工作台'}
-                disabled={pinDisabled}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: pinDisabled ? '#555' : theme.colors.textMuted,
-                  fontSize: 15,
-                  cursor: pinDisabled ? 'not-allowed' : 'pointer',
-                  padding: '0 4px',
-                  lineHeight: 1,
-                  transition: 'color 150ms ease',
-                  opacity: pinDisabled ? 0.5 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (!pinDisabled) e.currentTarget.style.color = '#fff';
-                }}
-                onMouseLeave={(e) => {
-                  if (!pinDisabled) e.currentTarget.style.color = theme.colors.textMuted;
-                }}
-              >
-                📌 固定
-              </button>
-            )}
-            {onSticky && (
-              <button
-                onClick={onSticky}
-                title={isSticky ? '已置顶' : '置顶到画布'}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: isSticky ? theme.colors.nodeBorderSelected : theme.colors.textMuted,
-                  fontSize: 15,
-                  cursor: 'pointer',
-                  padding: '0 4px',
-                  lineHeight: 1,
-                  transition: 'color 150ms ease',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSticky) e.currentTarget.style.color = '#fff';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSticky) e.currentTarget.style.color = theme.colors.textMuted;
-                }}
-              >
-                📍 置顶
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              title="关闭"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: theme.colors.textMuted,
-                fontSize: 18,
-                cursor: 'pointer',
-                padding: '0 4px',
-                lineHeight: 1,
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#e06060'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = theme.colors.textMuted; }}
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
         {/* 内容区域 */}
         <div
           ref={innerRef}
           style={{
-            padding: 20,
+            padding: '12px 14px',
             overflow: 'auto',
             flex: 1,
             color: theme.colors.textPrimary,

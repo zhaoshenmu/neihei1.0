@@ -96,7 +96,7 @@ const panelModules = import.meta.glob<Record<string, unknown>>(
 
 /**
  * 从路径中提取文件夹名
- * e.g. '../chajian/HelloNode/manifest.json' => 'HelloNode'
+ * e.g. '../chajian/OutlineNode/manifest.json' => 'OutlineNode'
  */
 function getFolderName(path: string): string {
   const match = path.match(/chajian\/([^/]+)\//);
@@ -160,6 +160,7 @@ export function loadAllPlugins(): PluginLoadResult[] {
         category: (manifestData.category as string) || '通用',
         icon: manifestData.icon as string | undefined,
         description: manifestData.description as string | undefined,
+        fixedId: manifestData.fixedId as string, // 必须存在，enum校验器中检查
         inputs: toPortDefs(manifestData.inputs as SimplePortDef[] | undefined, 'input'),
         outputs: toPortDefs(manifestData.outputs as SimplePortDef[] | undefined, 'output'),
       };

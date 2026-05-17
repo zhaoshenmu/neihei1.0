@@ -8,6 +8,7 @@
  */
 import React from 'react';
 import type { NodeProps } from '@xyflow/react';
+import { TABS } from './types';
 
 /** 信号状态类型 */
 type SignalStatus = 'waiting' | 'active' | 'done';
@@ -19,14 +20,12 @@ interface OutlineItem {
   status: SignalStatus;
 }
 
-/** 默认大纲条目列表 */
-const DEFAULT_ITEMS: OutlineItem[] = [
-  { id: 'world', label: '世界观', status: 'waiting' },
-  { id: 'mainline', label: '主线', status: 'waiting' },
-  { id: 'character', label: '人物', status: 'waiting' },
-  { id: 'volume', label: '卷大纲', status: 'waiting' },
-  { id: 'chapter', label: '章节锚点', status: 'waiting' },
-];
+/** 默认大纲条目列表（从 types TABS 同步，保持与面板标签一致） */
+const DEFAULT_ITEMS: OutlineItem[] = TABS.map((tab) => ({
+  id: tab.id,
+  label: tab.label,
+  status: 'waiting' as SignalStatus,
+}));
 
 /** 信号原点颜色映射 */
 const SIGNAL_COLORS: Record<SignalStatus, string> = {

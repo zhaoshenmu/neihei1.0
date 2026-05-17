@@ -19,12 +19,11 @@ if not exist "node_modules" (
 )
 
 echo [2/3] 启动开发服务器...
-echo 浏览器将自动打开 http://localhost:5173
-echo.
 echo 提示：按 Ctrl+C 可停止服务器
 echo.
+echo 浏览器将在服务器启动后自动打开
+echo.
 
-start http://localhost:5173
 call npm run dev
 
 pause

@@ -26,6 +26,8 @@ export interface PluginManifest {
   version?: string;
   author?: string;
   icon?: string;
+  /** 节点固定ID（如 "001"），全局唯一，绑定节点类型，永不改变 */
+  fixedId: string;
   inputs?: PortDefinition[];
   outputs?: PortDefinition[];
   /** 节点计算代码（可选） 

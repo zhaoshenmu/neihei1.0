@@ -1,8 +1,9 @@
 {
   "type": "outline",
-  "label": "大纲编辑器",
+  "label": "世界编辑器",
   "category": "核心",
   "icon": "📋",
+  "fixedId": "003",
   "description": "大纲编辑器，显示世界观、主线、人物、卷大纲、章节锚点标题，带信号原点",
   "inputs": [
     { "id": "trigger-in", "label": "触发", "dataType": "signal" }

@@ -1,5 +1,5 @@
 /** 大纲编辑器面板的标签页类型 */
-export type TabId = 'world' | 'mainline' | 'character' | 'volume' | 'chapter';
+export type TabId = 'setting' | 'world' | 'character' | 'plot' | 'consistency';
 
 /** 标签页定义 */
 export interface TabDef {
@@ -9,13 +9,15 @@ export interface TabDef {
 
 /** 标签页配置列表 */
 export const TABS: TabDef[] = [
-  { id: 'world', label: '世界观' },
-  { id: 'mainline', label: '主线' },
-  { id: 'character', label: '人物' },
-  { id: 'volume', label: '卷大纲' },
-  { id: 'chapter', label: '章节锚点' },
+  { id: 'setting', label: '作品设定' },
+  { id: 'world', label: '世界构建' },
+  { id: 'character', label: '人物核心' },
+  { id: 'plot', label: '剧情大纲' },
+  { id: 'consistency', label: '一致性检查' },
 ];
 
 /** 面板宽度常量 */
-export const MIN_WIDTH = 400;
-export const MAX_WIDTH = 600;
+export const PANEL_WIDTH = 400;
+export const PANEL_DEFAULT_HEIGHT = 900;
+export const PANEL_MIN_HEIGHT = 400;
+export const PANEL_MAX_HEIGHT = 1200;

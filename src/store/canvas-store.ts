@@ -2,6 +2,9 @@
  * 画布状态管理
  * 使用 Zustand 管理画布上的节点、边和交互状态
  * 持久化到 localStorage：刷新/关闭网页后节点和位置保持不变
+ * 
+ * fixedId：每个节点在 addNode 时从插件注册表读取 fixedId，
+ * 并将其存入 node.data.fixedId，此后所有实例共用此 ID 管理生命周期
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -21,6 +24,7 @@ import {
   applyEdgeChanges,
   addEdge,
 } from '@xyflow/react';
+import { pluginRegistry } from '@/plugin-system/plugin-registry';
 
 export interface CanvasState {
   /** 画布上的所有节点 */
@@ -31,6 +35,8 @@ export interface CanvasState {
   selectedNodeIds: string[];
   /** 已收起的节点 ID 列表 */
   collapsedNodes: string[];
+  /** 数据版本计数器 — 每次 updateNodeData 时递增，强制订阅组件重新渲染 */
+  dataVersion: number;
 
   // 操作方法
   onNodesChange: OnNodesChange;
@@ -66,6 +72,7 @@ export const useCanvasStore = create<CanvasState>()(
       edges: [],
       selectedNodeIds: [],
       collapsedNodes: [],
+      dataVersion: 0,
 
       onNodesChange: (changes: NodeChange[]) => {
         set({ nodes: applyNodeChanges(changes, get().nodes) });
@@ -81,13 +88,19 @@ export const useCanvasStore = create<CanvasState>()(
 
       addNode: (type: string, position: XYPosition, data?: Record<string, unknown>) => {
         const id = generateNodeId();
+        // 从插件注册表获取该类型的 fixedId 并存入 node data
+        const fixedId = pluginRegistry.getFixedId(type) || '';
         const newNode: Node = {
           id,
           type,
           position,
-          data: data || { label: type },
+          data: {
+            ...(data || { label: type }),
+            fixedId,
+          },
         };
         set({ nodes: [...get().nodes, newNode] });
+        console.log(`[Canvas] 添加节点 ${type} → 实例ID: ${id}, fixedId: ${fixedId}`);
         return id;
       },
 
@@ -109,6 +122,7 @@ export const useCanvasStore = create<CanvasState>()(
           nodes: get().nodes.map(n =>
             n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n
           ),
+          dataVersion: get().dataVersion + 1,
         });
       },
 

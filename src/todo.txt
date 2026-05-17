@@ -1,0 +1,12 @@
+实施完成 ✅
+1. ✅ 4个 manifest.json 加 fixedId（001-004）
+2. ✅ plugin-types.ts 加 fixedId 类型（required）
+3. ✅ plugin-registry.ts 加 getFixedId() + 所有 getShortId→getFixedId
+4. ✅ canvas-store.ts addNode时从manifest读取fixedId存入node.data
+5. ✅ 新建 usePanelLifecycleStore.ts（按fixedId追踪生命周期）
+6. ✅ Canvas.tsx 重构双击逻辑（fixedId-based，不再按实例ID）
+7. ✅ store/index.ts 导出usePanelLifecycleStore
+8. ✅ build通过 ✅
+
+核心机制：所有同类型节点共享fixedId生命周期，
+两次机会（固定+置顶）用完即永久关闭，再无弹出机会。

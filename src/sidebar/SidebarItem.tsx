@@ -12,7 +12,7 @@ interface SidebarItemProps {
 }
 
 const SidebarItem: React.FC<SidebarItemProps> = ({ manifest }) => {
-  const shortId = pluginRegistry.getShortId(manifest.type);
+  const shortId = pluginRegistry.getFixedId(manifest.type);
   const handleDragStart = (event: React.DragEvent) => {
     event.dataTransfer.setData('application/plugin-type', manifest.type);
     event.dataTransfer.effectAllowed = 'move';

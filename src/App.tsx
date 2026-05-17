@@ -16,28 +16,109 @@
  * 关键：Sidebar/WorkflowPanel 绝对定位浮在画布上
  *       画布始终固定，不随面板展开收起而左右移动
  */
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Canvas } from '@/canvas';
 import { Sidebar } from '@/sidebar';
 import { loadAllPlugins } from '@/plugin-system';
 import { theme } from '@/theme/neihei-theme';
 import { setupConsoleCapture } from '@/store/log-store';
 import { useSettingsStore } from '@/store/settings-store';
-import { useAppStore } from '@/store/useAppStore';
 import LogPanel from '@/components/LogPanel';
 import TopToolbar from '@/components/TopToolbar';
 import VaultPanel from '@/components/VaultPanel';
 import type { VaultTab } from '@/components/vault-types';
 import WorkflowPanel from '@/components/WorkflowPanel';
-import OutlinePanel from '@/chajian/OutlineNode/OutlinePanel';
-import { Workbench } from '@/workbench/Workbench';
 import './App.css';
+import { useCanvasStore } from '@/store/canvas-store';
+import { callAi } from '@/services/ai-service';
+import { useLogStore } from '@/store/log-store';
+import { useApiConnectionStore } from '@/store/api-connection-store';
+import { useExecutionStore } from '@/store/execution-store';
 
 const App: React.FC = () => {
   const [pluginLoaded, setPluginLoaded] = useState(false);
   const consoleCaptureRef = useRef<(() => void) | null>(null);
   const [activeTab, setActiveTab] = useState<VaultTab | null>(null);
-  const mode = useAppStore((s) => s.mode);
+
+  /** 点击「▶ 运行」按钮时触发：遍历所有边，提取源节点text → 调AI → 写入目标节点aiOutput */
+  const handleRun = async () => {
+    const { nodes, edges } = useCanvasStore.getState();
+    const addLog = useLogStore.getState().addLog;
+    const execStore = useExecutionStore.getState();
+
+    if (edges.length === 0) {
+      addLog({ type: 'info', message: '[运行] 没有连线，跳过' });
+      return;
+    }
+
+    addLog({ type: 'info', message: `[运行] 开始处理 ${edges.length} 条连线...` });
+
+    for (const edge of edges) {
+      const sourceNode = nodes.find((n) => n.id === edge.source);
+      const targetNode = nodes.find((n) => n.id === edge.target);
+
+      if (!sourceNode || !targetNode) continue;
+
+      const text = sourceNode.data?.text as string;
+      if (!text || text.trim().length === 0) {
+        addLog({ type: 'warning', message: `[运行] ${sourceNode.id} 没有输入内容，跳过` });
+        continue;
+      }
+
+      addLog({ type: 'info', message: `[运行] ${sourceNode.id} → ${targetNode.id} : "${text.substring(0, 30)}..."` });
+
+      // 运行前清空上次的错误/输出，避免旧信息残留
+      useCanvasStore.getState().updateNodeData(targetNode.id, {
+        aiOutput: '',
+        _aiLoading: true,
+      });
+
+      // 标记源节点为运行中（边框变蓝）
+      execStore.setRunning(sourceNode.id);
+      // 也标记目标节点为运行中
+      execStore.setRunning(targetNode.id);
+
+      try {
+        const result = await callAi([{ role: 'user', content: text }]);
+
+        if (result.success) {
+          useCanvasStore.getState().updateNodeData(targetNode.id, {
+            aiOutput: result.content,
+            _aiLoading: false,
+          });
+          // 标记源节点和目标节点为成功（边框变绿）
+          execStore.setSuccess(sourceNode.id, { text });
+          execStore.setSuccess(targetNode.id, result.content);
+          addLog({ type: 'success', message: `[运行] AI回复已写入 ${targetNode.id}` });
+        } else {
+          useCanvasStore.getState().updateNodeData(targetNode.id, {
+            aiOutput: `❌ ${result.error}`,
+            _aiLoading: false,
+          });
+          // 目标节点标记为错误（边框变红）
+          execStore.setError(targetNode.id, result.error || '未知错误');
+          execStore.setSuccess(sourceNode.id, { text });
+          // 运行失败 → 该 API 绿灯灭
+          if (result.apiId) {
+            useApiConnectionStore.getState().setStatus(result.apiId, 'disconnected');
+          }
+          addLog({ type: 'error', message: `[运行] AI调用失败: ${result.error || '未知错误'}` });
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        useCanvasStore.getState().updateNodeData(targetNode.id, {
+          aiOutput: `❌ ${errorMsg}`,
+          _aiLoading: false,
+        });
+        // 目标节点标记为错误（边框变红）
+        execStore.setError(targetNode.id, errorMsg);
+        execStore.setSuccess(sourceNode.id, { text });
+        addLog({ type: 'error', message: `[运行] 异常: ${errorMsg}` });
+      }
+    }
+
+    addLog({ type: 'success', message: '[运行] 全部处理完成' });
+  };
 
   useEffect(() => {
     useSettingsStore.getState().loadSettings();
@@ -80,60 +161,52 @@ const App: React.FC = () => {
       }}
     >
       {/* 顶部标题栏（全宽横条，固定高度，带底部分隔线） */}
-      <TopToolbar />
+      <TopToolbar onRun={handleRun} />
 
-      {mode === 'canvas' ? (
-        /* ── 画布模式 ── */
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          {/* 左侧竖条面板（60px，始终固定） */}
-          <VaultPanel activeTab={activeTab} onTabChange={setActiveTab} />
+      {/* ── 画布模式（唯一模式） ── */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* 左侧竖条面板（60px，始终固定） */}
+        <VaultPanel activeTab={activeTab} onTabChange={setActiveTab} />
 
-          {/* 右侧区域：画布铺满，面板绝对定位浮在画布上 */}
-          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-            {/* 节点侧边栏 — 绝对定位，不占布局，不推动画布 */}
-            {activeTab === 'nodes' && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  zIndex: 5,
-                }}
-              >
-                <Sidebar />
-              </div>
-            )}
+        {/* 右侧区域：画布铺满，面板绝对定位浮在画布上 */}
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          {/* 节点侧边栏 — 绝对定位，不占布局，不推动画布 */}
+          {activeTab === 'nodes' && (
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                zIndex: 5,
+              }}
+            >
+              <Sidebar />
+            </div>
+          )}
 
-            {/* 工作流面板 — 同上的绝对定位方式 */}
-            {activeTab === 'workflows' && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  zIndex: 5,
-                }}
-              >
-                <WorkflowPanel />
-              </div>
-            )}
+          {/* 工作流面板 — 同上的绝对定位方式 */}
+          {activeTab === 'workflows' && (
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                zIndex: 5,
+              }}
+            >
+              <WorkflowPanel />
+            </div>
+          )}
 
-            {/* 画布 — 始终铺满，不受面板展开收起影响 */}
-            <Canvas pluginLoaded={pluginLoaded} />
-          </div>
+          {/* 画布 — 始终铺满，不受面板展开收起影响 */}
+          <Canvas pluginLoaded={pluginLoaded} />
         </div>
-      ) : (
-        /* ── 工作台模式 ── */
-        <div style={{ flex: 1, overflow: 'hidden' }}>
-          <Workbench />
-        </div>
-      )}
+      </div>
 
       {/* 悬浮日志面板 */}
       <LogPanel />
-      <OutlinePanel />
     </div>
   );
 };

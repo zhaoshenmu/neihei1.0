@@ -14,7 +14,7 @@ export type LLMProvider = 'openai' | 'claude' | 'lm-studio' | 'custom';
 
 /** LLM 请求配置 */
 export interface LLMRequestConfig {
-  /** 模型名称，如 'gpt-4o', 'claude-3-opus' */
+  /** 模型名称，如 'deepseek-chat', 'claude-3-opus' */
   model: string;
   /** 温度，0-2，默认 0.7 */
   temperature?: number;
@@ -78,7 +78,7 @@ export class ServiceError extends Error {
 export function createDefaultConfig(provider: LLMProvider): LLMRequestConfig {
   switch (provider) {
     case 'openai':
-      return { model: 'gpt-4o', temperature: 0.7, maxTokens: 4096 };
+      return { model: 'deepseek-chat', temperature: 0.7, maxTokens: 4096 };
     case 'claude':
       return { model: 'claude-3-opus', temperature: 0.7, maxTokens: 4096 };
     case 'lm-studio':

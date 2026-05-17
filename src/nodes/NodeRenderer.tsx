@@ -66,7 +66,7 @@ export const NodeRenderer: React.FC<NodeProps> = (props) => {
       outputs={manifest?.outputs}
       nodeId={id}
       collapsed={isCollapsed}
-      shortId={pluginRegistry.getShortId(type) || id.slice(0, 4)}
+      shortId={pluginRegistry.getFixedId(type) || id.slice(0, 4)}
     >
       <SandboxedComponent {...props} />
     </NodeWrapper>

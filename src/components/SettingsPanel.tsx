@@ -2,37 +2,28 @@
  * SettingsPanel.tsx
  * 
  * 管理器面板 - 可拖动的悬浮窗口
- * 点击顶部工具栏的「管理器」按钮弹出
- * 
- * 设置项：
- * - Worker 执行超时时间
- * - 端口标签显示
- * - 重置为默认值
+ * 布局：左右分栏
+ * - 左侧：API设置卷帘，点击展开显示对应配置表单（大模型API / 本地LM Studio / 生图预留）
+ * - 右侧：留空，后续增加其他功能（软件设置等）
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { useSettingsStore } from '@/store/settings-store';
 import { theme } from '@/theme/neihei-theme';
+import SettingsSidebar from '@/components/settings/SettingsSidebar';
+import { NAV_ITEMS } from '@/components/settings/types';
 
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const PANEL_WIDTH = 360;
-const PANEL_HEIGHT = 260;
+const PANEL_WIDTH = 800;
+const PANEL_HEIGHT = 620;
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
-  const { workerTimeout, showPortLabels, updateSetting, resetToDefaults } = useSettingsStore();
-  const [timeoutInput, setTimeoutInput] = useState(String(workerTimeout));
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const initialized = useRef(false);
-
-  // 当外部 workerTimeout 变化时同步输入框
-  useEffect(() => {
-    setTimeoutInput(String(workerTimeout));
-  }, [workerTimeout]);
 
   // 初始化位置（居中）
   useEffect(() => {
@@ -98,6 +89,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         cursor: isDragging ? 'grabbing' : 'default',
         userSelect: isDragging ? 'none' : 'auto',
         overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       {/* 标题栏 - 可拖拽区域 */}
@@ -110,6 +103,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
           padding: '12px 16px',
           borderBottom: `1px solid ${theme.colors.inputBorder}`,
           cursor: 'grab',
+          flexShrink: 0,
         }}
       >
         <span style={{ color: theme.colors.textPrimary, fontWeight: 600, fontSize: 14 }}>
@@ -132,97 +126,35 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         </button>
       </div>
 
-      {/* 设置内容 */}
-      <div style={{ padding: '16px 20px' }}>
-        {/* Worker 超时 */}
-        <div style={{ marginBottom: 14 }}>
-          <label
-            style={{
-              display: 'block',
-              color: theme.colors.textSecondary,
-              fontSize: 12,
-              marginBottom: 6,
-              fontWeight: 500,
-            }}
-          >
-            Worker 执行超时（毫秒）
-          </label>
-          <input
-            type="number"
-            value={timeoutInput}
-            onChange={(e) => setTimeoutInput(e.target.value)}
-            onBlur={() => {
-              const val = parseInt(timeoutInput);
-              if (!isNaN(val) && val > 0) {
-                updateSetting('workerTimeout', val);
-              } else {
-                setTimeoutInput(String(workerTimeout));
-              }
-            }}
-            style={{
-              width: '100%',
-              padding: '6px 10px',
-              background: '#1a1a1a',
-              border: `1px solid ${theme.colors.inputBorder}`,
-              borderRadius: 6,
-              color: theme.colors.textPrimary,
-              fontSize: 13,
-              outline: 'none',
-              boxSizing: 'border-box',
-            }}
-          />
-          <div style={{ color: theme.colors.textMuted, fontSize: 11, marginTop: 4 }}>
-            当前值: {workerTimeout}ms = {workerTimeout / 1000}秒
-          </div>
-        </div>
-
-        {/* 端口标签显示 */}
-        <div style={{ marginBottom: 14 }}>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              cursor: 'pointer',
-              color: theme.colors.textSecondary,
-              fontSize: 12,
-              fontWeight: 500,
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={showPortLabels}
-              onChange={(e) => updateSetting('showPortLabels', e.target.checked)}
-              style={{ accentColor: theme.colors.portColor }}
-            />
-            显示端口标签
-          </label>
-        </div>
-
-        {/* 重置按钮 */}
-        <button
-          onClick={resetToDefaults}
+      {/* 主体区域：左右分栏（各占一半） */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* 左侧 - API设置卷帘（颜色与右侧一致，竖线分隔） */}
+        <div
           style={{
-            width: '100%',
-            padding: '8px 0',
-            background: '#2a2a2a',
-            border: `1px solid ${theme.colors.inputBorder}`,
-            borderRadius: 6,
-            color: theme.colors.textMuted,
-            fontSize: 12,
-            cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = '#e06060';
-            e.currentTarget.style.color = '#e06060';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = theme.colors.inputBorder;
-            e.currentTarget.style.color = theme.colors.textMuted;
+            width: '50%',
+            borderRight: `1px solid ${theme.colors.inputBorder}`,
+            background: '#0d0d0d',
+            flexShrink: 0,
+            overflow: 'auto',
           }}
         >
-          重置为默认设置
-        </button>
+          <SettingsSidebar items={NAV_ITEMS} />
+        </div>
+
+        {/* 右侧 - 留空，后续增加其他功能 */}
+        <div
+          style={{
+            flex: 1,
+            background: '#0d0d0d',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: theme.colors.textMuted,
+            fontSize: 14,
+          }}
+        >
+          其他功能（待添加）
+        </div>
       </div>
     </div>
   );

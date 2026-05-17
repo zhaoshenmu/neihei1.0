@@ -5,6 +5,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { initDataflowEngine } from './dataflow';
+
+// 初始化数据流引擎（在 React 渲染之前启动）
+initDataflowEngine();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

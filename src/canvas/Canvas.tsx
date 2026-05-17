@@ -2,17 +2,11 @@
  * 画布主组件
  * 基于 React Flow 的节点编辑画布
  * 
- * 双击弹出逻辑（2025-05-16 v3）：
- * - floating 改为数组，每个节点双击独立弹出，互不替换
- * - 每次双击实时检查「工作台」和「置顶」两个 store
- * - 逻辑表：
- *   inWorkbench | inSticky | 是否弹出 | 按钮
- *   ------------|----------|---------|------
- *   ❌ 无      | ❌ 无    | ✅ 弹出 | [固定] + [置顶]
- *   ✅ 有      | ❌ 无    | ✅ 弹出 | [置顶]
- *   ❌ 无      | ✅ 有    | ✅ 弹出 | [固定]
- *   ✅ 有      | ✅ 有    | ❌ 不弹出 | —
- * - 置顶时保持浮窗当前位置/大小
+ * 双击弹出逻辑（简化版）：
+ * - 每个节点双击弹出配置面板
+ * - 如果该节点已经有弹出面板打开中，不再重复弹出
+ * - 置顶按钮始终显示（除非对应的面板已置顶）
+ * - 置顶面板关闭后，再次双击可重新弹出
  */
 import React, { useCallback, useRef, useMemo, useState } from 'react';
 import {
@@ -35,10 +29,10 @@ import BezierEdge from './BezierEdge';
 import CanvasControls from './CanvasControls';
 import { FloatingContainer } from '@/floating/FloatingContainer';
 import { pluginRegistry } from '@/plugin-system/plugin-registry';
-import { useLayoutStore } from '@/store/useLayoutStore';
 import { useStickyPanelStore } from '@/store/useStickyPanelStore';
 import { handleDropEvent, handleKeyDelete } from './Canvas.handlers';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
+import { PANEL_WIDTH, PANEL_DEFAULT_HEIGHT, PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT } from '@/chajian/OutlineNode/types';
 
 interface CanvasProps {
   onAddNode?: (type: string, position: XYPosition) => void;
@@ -47,7 +41,7 @@ interface CanvasProps {
 
 /** 每个弹出浮窗的状态 */
 interface FloatingPanel {
-  id: string; // 唯一标识，用于关闭/更新
+  id: string;
   nodeId: string;
   pluginType: string;
   PanelComp: React.ComponentType<{ nodeId: string }>;
@@ -130,12 +124,20 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
     [setSelectedNodes]
   );
 
-  // ── 右键菜单状态 ──
+  // ── 右键菜单状态（画布节点/空白） ──
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     type: 'node' | 'pane';
     nodeId?: string;
+  } | null>(null);
+
+  // ── 浮窗右键菜单状态 ──
+  const [contextMenuFloat, setContextMenuFloat] = useState<{
+    x: number;
+    y: number;
+    floatId: string;
+    isSticky: boolean;
   } | null>(null);
   const toggleCollapseNode = useCanvasStore((s) => s.toggleCollapseNode);
   const collapseAllNodes = useCanvasStore((s) => s.collapseAllNodes);
@@ -171,18 +173,32 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
     setContextMenu(null);
   }, []);
 
+  const closeContextMenuFloat = useCallback(() => {
+    setContextMenuFloat(null);
+  }, []);
+
+  /** 处理浮窗右键菜单 */
+  const handleFloatContextMenu = useCallback((floatId: string, isSticky: boolean, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenuFloat({
+      x: e.clientX,
+      y: e.clientY,
+      floatId,
+      isSticky,
+    });
+  }, []);
+
   // ── 悬浮窗列表（每个节点独立弹出，互不替换） ──
   const [floats, setFloats] = useState<FloatingPanel[]>([]);
 
   // ── 读取 store ──
-  const workbenchPanels = useLayoutStore((s) => s.panels);
-  const addPanel = useLayoutStore((s) => s.addPanel);
-  const stickyPanels = useStickyPanelStore((s) => s.panels);
   const addStickyPanel = useStickyPanelStore((s) => s.addPanel);
   const removeStickyPanel = useStickyPanelStore((s) => s.removePanel);
   const updateStickyPosition = useStickyPanelStore((s) => s.updatePosition);
   const updateStickySize = useStickyPanelStore((s) => s.updateSize);
   const bringToFront = useStickyPanelStore((s) => s.bringToFront);
+  const stickyPanels = useStickyPanelStore((s) => s.panels);
 
   /** 关闭指定浮窗 */
   const closeFloat = useCallback((floatId: string) => {
@@ -193,19 +209,6 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
   const updateFloat = useCallback((floatId: string, partial: Partial<Pick<FloatingPanel, 'x' | 'y' | 'width' | 'height'>>) => {
     setFloats((prev) => prev.map((f) => f.id === floatId ? { ...f, ...partial } : f));
   }, []);
-
-  /** 固定到工作台 */
-  const handlePin = useCallback((floatId: string) => {
-    const fp = floats.find((f) => f.id === floatId);
-    if (!fp) return;
-    addPanel({
-      id: `${fp.pluginType}:${fp.nodeId}`,
-      pluginType: fp.pluginType,
-      nodeId: fp.nodeId,
-      label: fp.pluginType,
-    });
-    closeFloat(floatId);
-  }, [floats, addPanel, closeFloat]);
 
   /** 置顶到画布（保持当前浮窗位置/大小） */
   const handleSticky = useCallback((floatId: string) => {
@@ -230,22 +233,13 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
       const pluginType = node.type;
       if (!pluginType) return;
 
-      // 已置顶到画布
-      const inSticky = stickyPanels.some((p) => p.nodeId === node.id);
-      // 已固定到工作台
-      const inWorkbench = workbenchPanels.some(
-        (p) => p.nodeId === node.id || p.id === `${pluginType}:${node.id}`
-      );
-
-      // 工作台和画布都有 → 不再弹出
-      if (inWorkbench && inSticky) {
-        console.log(`[Canvas] 节点 ${node.id} 已同时存在于工作台和画布，不再弹出`);
-        return;
-      }
-
-      // 已有一个同名浮窗打开中 → 不再重复弹出
-      if (floats.some((f) => f.nodeId === node.id)) {
-        console.log(`[Canvas] 节点 ${node.id} 已打开浮窗，不再重复`);
+      // 检查该类型是否已有面板打开（浮窗或置顶）
+      // 同一类型插件全局只弹出一个面板，无论多少个实例
+      const hasPanelOpen =
+        floats.some((f) => f.pluginType === pluginType) ||
+        stickyPanels.some((p) => p.pluginType === pluginType);
+      if (hasPanelOpen) {
+        console.log(`[Canvas] ${pluginType} 类型已有面板打开，不再重复弹出`);
         return;
       }
 
@@ -255,9 +249,12 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
         return;
       }
 
-      // 居中位置
-      const cx = Math.max(0, (window.innerWidth - 420) / 2);
-      const cy = Math.max(0, (window.innerHeight - 300) / 2);
+      // 大纲编辑器使用固定宽 400、默认高 900
+      const isOutline = pluginType === 'outline';
+      const w = isOutline ? PANEL_WIDTH : 420;
+      const h = isOutline ? PANEL_DEFAULT_HEIGHT : 300;
+      const cx = Math.max(0, (window.innerWidth - w) / 2);
+      const cy = Math.max(0, (window.innerHeight - h) / 2);
       const fid = `float-${++floatingIdCounter}`;
 
       setFloats((prev) => [
@@ -269,12 +266,12 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
           PanelComp,
           x: cx,
           y: cy,
-          width: 420,
-          height: 300,
+          width: w,
+          height: h,
         },
       ]);
     },
-    [floats, stickyPanels, workbenchPanels]
+    [floats, stickyPanels]
   );
 
   const defaultEdgeOptions = useMemo(
@@ -294,6 +291,10 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
       const PanelComp = pluginRegistry.getPanel(sticky.pluginType);
       if (!PanelComp) return null;
 
+      const handleCloseSticky = () => {
+        removeStickyPanel(sticky.id);
+      };
+
       return (
         <FloatingContainer
           key={sticky.id}
@@ -301,22 +302,27 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
           pluginType={sticky.pluginType}
           title={sticky.label || sticky.pluginType}
           isSticky
-          isPinnedToWorkbench={false}
           defaultX={sticky.x}
           defaultY={sticky.y}
           defaultWidth={sticky.width}
           defaultHeight={sticky.height}
-          onClose={() => removeStickyPanel(sticky.id)}
-          onSticky={() => removeStickyPanel(sticky.id)}
+          onClose={handleCloseSticky}
+          onSticky={handleCloseSticky}
           onDragStop={(x, y) => updateStickyPosition(sticky.id, x, y)}
           onResizeStop={(w, h) => updateStickySize(sticky.id, w, h)}
           onClick={() => bringToFront(sticky.id)}
+          onContextMenu={(e) => handleFloatContextMenu(sticky.id, true, e)}
         >
           <PanelComp nodeId={sticky.nodeId} />
         </FloatingContainer>
       );
     });
   };
+
+  // 检查某个 nodeId 是否已置顶
+  const isStickied = useCallback((nodeId: string) => {
+    return stickyPanels.some((p) => p.nodeId === nodeId);
+  }, [stickyPanels]);
 
   return (
     <div
@@ -413,14 +419,40 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
         );
       })()}
 
-      {/* 所有双击弹出的悬浮配置面板 - 独立渲染互不替换 */}
-      {floats.map((fp) => {
-        const inSticky = stickyPanels.some((p) => p.nodeId === fp.nodeId);
-        const inWorkbench = workbenchPanels.some(
-          (p) => p.nodeId === fp.nodeId || p.id === `${fp.pluginType}:${fp.nodeId}`
+      {/* 浮窗右键菜单 */}
+      {contextMenuFloat && (() => {
+        const { floatId, isSticky } = contextMenuFloat;
+        const items: ContextMenuItem[] = [];
+        if (!isSticky) {
+          items.push({
+            label: '置顶到画布',
+            onClick: () => handleSticky(floatId),
+          });
+        }
+        items.push({
+          label: '关闭面板',
+          onClick: () => {
+            if (isSticky) {
+              removeStickyPanel(floatId);
+            } else {
+              closeFloat(floatId);
+            }
+          },
+        });
+        return (
+          <ContextMenu
+            x={contextMenuFloat.x}
+            y={contextMenuFloat.y}
+            items={items}
+            onClose={closeContextMenuFloat}
+          />
         );
-        const showPin = !inWorkbench;
-        const showSticky = !inSticky;
+      })()}
+
+      {/* 所有双击弹出的悬浮配置面板 */}
+      {floats.map((fp) => {
+        const alreadyStickied = isStickied(fp.nodeId);
+        const isOutline = fp.pluginType === 'outline';
 
         return (
           <FloatingContainer
@@ -428,17 +460,20 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
             nodeId={fp.nodeId}
             pluginType={fp.pluginType}
             title={fp.pluginType}
-            isPinnedToWorkbench={false}
             isSticky={false}
             defaultX={fp.x}
             defaultY={fp.y}
             defaultWidth={fp.width}
             defaultHeight={fp.height}
             onClose={() => closeFloat(fp.id)}
-            onPin={showPin ? () => handlePin(fp.id) : undefined}
-            onSticky={showSticky ? () => handleSticky(fp.id) : undefined}
+            onSticky={!alreadyStickied ? () => handleSticky(fp.id) : undefined}
             onDragStop={(x, y) => updateFloat(fp.id, { x, y })}
             onResizeStop={(w, h) => updateFloat(fp.id, { width: w, height: h })}
+            onContextMenu={(e) => handleFloatContextMenu(fp.id, false, e)}
+            minWidth={isOutline ? PANEL_WIDTH : 300}
+            maxWidth={isOutline ? PANEL_WIDTH : undefined}
+            minHeight={isOutline ? PANEL_MIN_HEIGHT : 180}
+            maxHeight={isOutline ? PANEL_MAX_HEIGHT : undefined}
           >
             <fp.PanelComp nodeId={fp.nodeId} />
           </FloatingContainer>

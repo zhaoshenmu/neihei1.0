@@ -2,8 +2,8 @@
  * 插件注册表 - 全局单例
  * 维护所有已注册插件的索引，提供查询和访问接口
  * 
- * 每个插件注册时自动分配一个永久类型 ID（001、002、003……）
- * 所有同类型节点在画布上显示同一个 ID，方便沟通
+ * 每个插件的固定ID（fixedId）写死在 manifest.json 中（如 "001"、"002"）
+ * 同类型所有节点实例共享同一个 fixedId
  */
 import type { 
   PluginNodeDefinition, 
@@ -14,8 +14,6 @@ import type {
 
 class PluginRegistry {
   private plugins: Map<string, PluginRegistryEntry> = new Map();
-  /** 类型 → 短 ID 映射（如 "outline" → "001"） */
-  private shortIds: Map<string, string> = new Map();
   private static instance: PluginRegistry;
 
   private constructor() {}
@@ -30,7 +28,7 @@ class PluginRegistry {
   /**
    * 注册一个插件
    * 支持幂等更新：如果已存在则更新组件，不报错
-   * 首次注册时分配永久类型 ID
+   * fixedId 从 manifest.json 中读取
    */
   register(pluginDef: PluginNodeDefinition): PluginLoadResult {
     const { manifest, component, panel } = pluginDef;
@@ -40,6 +38,13 @@ class PluginRegistry {
       return {
         success: false,
         error: '插件缺少有效的 "type" 字段',
+      };
+    }
+
+    if (!manifest.fixedId) {
+      return {
+        success: false,
+        error: `插件 "${type}" 缺少 "fixedId" 字段（manifest.json 中必须定义）`,
       };
     }
 
@@ -53,8 +58,15 @@ class PluginRegistry {
       return { success: true, type, plugin: pluginDef };
     }
 
-    // 首次注册，分配永久类型 ID
-    const shortId = this.allocateShortId();
+    // 检查 fixedId 是否已被其他类型占用
+    for (const [, entry] of this.plugins) {
+      if (entry.manifest.fixedId === manifest.fixedId) {
+        return {
+          success: false,
+          error: `fixedId "${manifest.fixedId}" 已被 "${entry.type}" 占用`,
+        };
+      }
+    }
 
     this.plugins.set(type, {
       type,
@@ -64,36 +76,16 @@ class PluginRegistry {
       enabled: true,
       loadedAt: Date.now(),
     });
-    this.shortIds.set(type, shortId);
 
-    console.log(`[Registry] 注册插件 "${manifest.label}" → 类型 ID: ${shortId}`);
+    console.log(`[Registry] 注册插件 "${manifest.label}" → fixedId: ${manifest.fixedId}`);
     return { success: true, type, plugin: pluginDef };
   }
 
   /**
-   * 分配一个永久类型 ID（001、002、003……）
-   * 保存在 localStorage，重启不重置
+   * 获取插件类型的固定ID（从 manifest 读取）
    */
-  private allocateShortId(): string {
-    let counter: number;
-    try {
-      const raw = localStorage.getItem('neihei-plugin-id-counter');
-      counter = raw ? parseInt(raw, 10) : 0;
-    } catch {
-      counter = 0;
-    }
-    counter += 1;
-    try {
-      localStorage.setItem('neihei-plugin-id-counter', String(counter));
-    } catch {}
-    return String(counter).padStart(3, '0');
-  }
-
-  /**
-   * 获取插件类型的短 ID（用于标题栏显示）
-   */
-  getShortId(type: string): string | undefined {
-    return this.shortIds.get(type);
+  getFixedId(type: string): string | undefined {
+    return this.plugins.get(type)?.manifest.fixedId;
   }
 
   /**
@@ -190,7 +182,6 @@ class PluginRegistry {
    */
   clear(): void {
     this.plugins.clear();
-    this.shortIds.clear();
   }
 }
 

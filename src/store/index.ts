@@ -11,3 +11,6 @@ export { useSettingsStore } from './settings-store';
 
 export { useWorkflowStore } from './workflow-store';
 export type { WorkflowEntry } from './workflow-store';
+
+export { usePanelLifecycleStore } from './usePanelLifecycleStore';
+export type { LifecycleEntry } from './usePanelLifecycleStore';
