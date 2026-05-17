@@ -161,6 +161,7 @@ export const NodeWrapper: React.FC<NodeWrapperProps> = memo(({
         position: 'relative',
         fontFamily: theme.fontFamily.sans,
         willChange: 'transform',
+        backfaceVisibility: 'hidden' as const,
         contain: 'layout style',
         ...style,
       }}

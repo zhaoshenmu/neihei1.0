@@ -1,0 +1,17 @@
+{
+  "type": "memory",
+  "label": "掌故司",
+  "category": "核心",
+  "icon": "🧠",
+  "fixedId": "001",
+  "description": "记忆内核节点，管理上下文记忆与历史对话存储",
+  "inputs": [
+    { "id": "trigger-in", "label": "触发", "dataType": "signal" },
+    { "id": "data-in", "label": "数据输入", "dataType": "data" }
+  ],
+  "outputs": [
+    { "id": "trigger-out", "label": "输出", "dataType": "signal" },
+    { "id": "data-out", "label": "数据输出", "dataType": "data" }
+  ],
+  "defaultData": {}
+}

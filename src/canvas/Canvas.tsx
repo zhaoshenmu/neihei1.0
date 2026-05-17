@@ -8,7 +8,7 @@
  * - 置顶按钮始终显示（除非对应的面板已置顶）
  * - 置顶面板关闭后，再次双击可重新弹出
  */
-import React, { useCallback, useRef, useMemo, useState } from 'react';
+import React, { useCallback, useRef, useMemo, useState, useEffect } from 'react';
 import {
   ReactFlow,
   Background,
@@ -26,12 +26,15 @@ import { buildNodeTypes } from '@/nodes';
 import { theme } from '@/theme/neihei-theme';
 import { CANVAS_CONFIG } from './Canvas.config';
 import BezierEdge from './BezierEdge';
+import FlowEdge from './FlowEdge';
 import CanvasControls from './CanvasControls';
 import { FloatingContainer } from '@/floating/FloatingContainer';
 import { pluginRegistry } from '@/plugin-system/plugin-registry';
 import { useStickyPanelStore } from '@/store/useStickyPanelStore';
+import { useSettingsStore } from '@/store/settings-store';
 import { handleDropEvent, handleKeyDelete } from './Canvas.handlers';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
+import QuickConnectMenu from './QuickConnectMenu';
 import { PANEL_WIDTH, PANEL_DEFAULT_HEIGHT, PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT } from '@/chajian/OutlineNode/types';
 
 interface CanvasProps {
@@ -61,6 +64,23 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
     fitView: (opts?: { padding?: number }) => void;
   } | null>(null);
 
+  // ── 从 settings store 读取快捷键配置 ──
+  const shortcuts = useSettingsStore((s) => s.shortcuts);
+
+  // 将 store 中的快捷键格式转为 React Flow 可识别的格式
+  const flowDeleteKeyCode = useMemo(() => {
+    const del = shortcuts.find((s) => s.id === 'delete');
+    return del ? del.keys : ['Delete'];
+  }, [shortcuts]);
+
+  const flowMultiSelectionKeyCode = useMemo(() => {
+    const ms = shortcuts.find((s) => s.id === 'multi_select');
+    if (!ms || ms.keys.length === 0) return 'Shift';
+    // multiSelectionKeyCode 只认修饰键，取第一个（Shift/Ctrl/Alt/Meta）
+    const modKey = ms.keys[0] === 'Click' ? ms.keys[ms.keys.length - 1] : ms.keys[0];
+    return modKey;
+  }, [shortcuts]);
+
   const {
     nodes,
     edges,
@@ -73,8 +93,15 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
     setSelectedNodes,
   } = useCanvasStore();
 
+  const edgeLineStyle = useSettingsStore((s) => s.edgeLineStyle);
+
   const nodeTypes = useMemo(() => buildNodeTypes(), [pluginLoaded]);
-  const edgeTypes = useMemo(() => ({ bezier: BezierEdge }), []);
+  const edgeTypes = useMemo(() => {
+    if (edgeLineStyle === '流动') {
+      return { bezier: FlowEdge };
+    }
+    return { bezier: BezierEdge };
+  }, [edgeLineStyle]);
 
   const onInit = useCallback((instance: any) => {
     setReactFlowInstance(instance);
@@ -107,7 +134,12 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
-      if (event.key === 'Delete') {
+      // 从当前 store 读取 delete 快捷键配置
+      const currentShortcuts = useSettingsStore.getState().shortcuts;
+      const delEntry = currentShortcuts.find((s) => s.id === 'delete');
+      const deleteKeys = delEntry ? delEntry.keys : ['Delete'];
+
+      if (deleteKeys.includes(event.key)) {
         handleKeyDelete(selectedNodeIds, removeNodes);
       }
       if (event.key === 'Escape') {
@@ -188,6 +220,18 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
       isSticky,
     });
   }, []);
+
+  // ── 快速连接菜单（从端口拖出连线到空白处时弹出） ──
+  // handleType: 'source' = 从输出口拖出, 'target' = 从输入口拖出
+  const [quickConnectMenu, setQuickConnectMenu] = useState<{
+    x: number;
+    y: number;
+    sourceNodeId: string;
+    sourceHandleId: string | null;
+    handleType: 'source' | 'target' | null;
+  } | null>(null);
+  // ref 标记用户是否正在拖出连线（onConnectStart 设 true，onConnect 设 false）
+  const isConnectingRef = useRef(false);
 
   // ── 悬浮窗列表（每个节点独立弹出，互不替换） ──
   const [floats, setFloats] = useState<FloatingPanel[]>([]);
@@ -280,7 +324,6 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
       activeStyle: CANVAS_CONFIG.edgeSelectedStyle,
       selectedStyle: CANVAS_CONFIG.edgeSelectedStyle,
       type: 'bezier' as const,
-      animated: false,
     }),
     []
   );
@@ -324,6 +367,177 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
     return stickyPanels.some((p) => p.nodeId === nodeId);
   }, [stickyPanels]);
 
+  // ── 快速连接菜单逻辑 ──
+
+  // 用 ref 同步记录源头信息，避免闭包过期问题
+  const quickConnectMenuRef = useRef<{
+    sourceNodeId: string;
+    sourceHandleId: string | null;
+    handleType: 'source' | 'target' | null;
+  }>({ sourceNodeId: '', sourceHandleId: null, handleType: null });
+
+  /** 开始拖出连线时记录源头信息 */
+  const onConnectStart = useCallback(
+    (_event: any, params: { nodeId: string | null; handleId: string | null; handleType: string | null }) => {
+      isConnectingRef.current = true;
+      quickConnectMenuRef.current = {
+        sourceNodeId: params.nodeId ?? '',
+        sourceHandleId: params.handleId,
+        handleType: params.handleType as 'source' | 'target' | null,
+      };
+    },
+    []
+  );
+
+  /** onConnect 的包装：用户成功连到目标节点时调用（禁止弹出菜单） */
+  const handleConnect = useCallback(
+    (connection: any) => {
+      isConnectingRef.current = false; // 已成功连线，onConnectEnd 不再弹出菜单
+      onConnect(connection);
+    },
+    [onConnect]
+  );
+
+  /** 拖放结束：如果没连到节点则弹出快速选择菜单 */
+  const onConnectEnd = useCallback(
+    (event: any) => {
+      if (!isConnectingRef.current) return; // 已连到目标节点，不弹菜单
+
+      isConnectingRef.current = false;
+
+      // 获取鼠标屏幕坐标
+      const clientX = event?.clientX ?? event?.sourceEvent?.clientX ?? 0;
+      const clientY = event?.clientY ?? event?.sourceEvent?.clientY ?? 0;
+
+      if (!quickConnectMenuRef.current.sourceNodeId) return;
+
+      setQuickConnectMenu({
+        x: clientX + 10,
+        y: clientY + 10,
+        sourceNodeId: quickConnectMenuRef.current.sourceNodeId,
+        sourceHandleId: quickConnectMenuRef.current.sourceHandleId,
+        handleType: quickConnectMenuRef.current.handleType,
+      });
+    },
+    []
+  );
+
+  /** 从菜单选择节点类型后：创建节点+连线 */
+  const handleQuickSelect = useCallback(
+    (type: string) => {
+      if (!quickConnectMenu || !reactFlowInstance) return;
+
+      const { sourceNodeId, sourceHandleId, handleType, x, y } = quickConnectMenu;
+
+      const targetManifest = pluginRegistry.getManifest(type);
+
+      // 从输出口(source)拖线 → 新节点必须有输入口
+      // 从输入口(target)拖线 → 新节点必须有输出口
+      if (handleType === 'source') {
+        if (!targetManifest || !targetManifest.inputs || targetManifest.inputs.length === 0) {
+          console.warn(`[Canvas] 节点 "${type}" 没有输入口，不能作为连线目标`);
+          setQuickConnectMenu(null);
+          return;
+        }
+      } else if (handleType === 'target') {
+        if (!targetManifest || !targetManifest.outputs || targetManifest.outputs.length === 0) {
+          console.warn(`[Canvas] 节点 "${type}" 没有输出口，不能作为连线源`);
+          setQuickConnectMenu(null);
+          return;
+        }
+      } else {
+        // 没有 handleType（安全兜底），关闭菜单
+        setQuickConnectMenu(null);
+        return;
+      }
+
+      // 将屏幕坐标转为画布坐标
+      const flowPos = reactFlowInstance.screenToFlowPosition({ x, y });
+
+      // 1) 创建新节点
+      const newNodeId = addNode(type, flowPos);
+
+      // 2) 创建连线（方向取决于从哪个端口拖出）
+      let newEdge: { source: string; target: string; sourceHandle: string | null; targetHandle: string | null };
+      if (handleType === 'source') {
+        // 从输出口拖出：当前节点 → 新节点
+        newEdge = {
+          source: sourceNodeId,
+          target: newNodeId,
+          sourceHandle: sourceHandleId,
+          targetHandle: null,
+        };
+      } else {
+        // 从输入口拖出：新节点 → 当前节点
+        newEdge = {
+          source: newNodeId,
+          target: sourceNodeId,
+          sourceHandle: null,
+          targetHandle: sourceHandleId,
+        };
+      }
+      // 通过 store 的 onConnect 添加边
+      onConnect(newEdge);
+
+      // 3) 关闭菜单
+      setQuickConnectMenu(null);
+    },
+    [quickConnectMenu, reactFlowInstance, addNode, onConnect]
+  );
+
+  /** 关闭快速连接菜单 */
+  // ── 双击画布空白弹出「选择节点」菜单（通过点击时间戳检测，绕过 ReactFlow 事件拦截） ──
+  const [paneCreateMenu, setPaneCreateMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const paneCreatePosRef = useRef<XYPosition>({ x: 0, y: 0 });
+  const lastPaneClickRef = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 });
+
+  const onPaneClick = useCallback(
+    (event: React.MouseEvent<Element, MouseEvent>) => {
+      const clientX = event.clientX;
+      const clientY = event.clientY;
+      const now = Date.now();
+      const last = lastPaneClickRef.current;
+      const timeDiff = now - last.time;
+      const dist = Math.sqrt(
+        Math.pow(clientX - last.x, 2) + Math.pow(clientY - last.y, 2)
+      );
+
+      // 两次点击间隔 < 300ms 且距离 < 10px 视为双击
+      if (timeDiff < 300 && timeDiff > 20 && dist < 10) {
+        setPaneCreateMenu({ x: clientX, y: clientY });
+        if (reactFlowInstance) {
+          paneCreatePosRef.current = reactFlowInstance.screenToFlowPosition({ x: clientX, y: clientY });
+        }
+        // 重置，防止弹出第二个
+        lastPaneClickRef.current = { time: 0, x: 0, y: 0 };
+      } else {
+        lastPaneClickRef.current = { time: now, x: clientX, y: clientY };
+      }
+    },
+    [reactFlowInstance]
+  );
+
+  /** 从画布双击菜单选中节点类型后：创建节点（无连线） */
+  const handlePaneCreateSelect = useCallback(
+    (type: string) => {
+      if (!paneCreateMenu) return;
+      addNode(type, paneCreatePosRef.current);
+      setPaneCreateMenu(null);
+    },
+    [paneCreateMenu, addNode]
+  );
+
+  const closePaneCreateMenu = useCallback(() => {
+    setPaneCreateMenu(null);
+  }, []);
+
+  const closeQuickConnect = useCallback(() => {
+    setQuickConnectMenu(null);
+  }, []);
+
   return (
     <div
       ref={reactFlowWrapper}
@@ -345,7 +559,9 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
+        onConnect={handleConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
         onInit={onInit}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
@@ -354,11 +570,14 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeContextMenu={onNodeContextMenu}
         onPaneContextMenu={onPaneContextMenu}
+        onPaneClick={onPaneClick}
         selectionMode={SelectionMode.Partial}
+        selectionOnDrag
         panOnDrag={[1, 2]}
-        deleteKeyCode={['Delete']}
-        multiSelectionKeyCode="Shift"
-        snapToGrid={false}
+        deleteKeyCode={flowDeleteKeyCode}
+        multiSelectionKeyCode={flowMultiSelectionKeyCode}
+        snapToGrid={true}
+        snapGrid={[1, 1]}
         minZoom={CANVAS_CONFIG.minZoom}
         maxZoom={CANVAS_CONFIG.maxZoom}
         defaultViewport={CANVAS_CONFIG.defaultViewport}
@@ -448,6 +667,27 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
           />
         );
       })()}
+
+      {/* 快速连接菜单：从端口拖出连线到空白处时弹出 */}
+      {quickConnectMenu && (
+        <QuickConnectMenu
+          x={quickConnectMenu.x}
+          y={quickConnectMenu.y}
+          onSelect={handleQuickSelect}
+          onClose={closeQuickConnect}
+          fromHandleType={quickConnectMenu.handleType}
+        />
+      )}
+
+      {/* 双击画布空白弹出「选择节点」菜单 */}
+      {paneCreateMenu && (
+        <QuickConnectMenu
+          x={paneCreateMenu.x}
+          y={paneCreateMenu.y}
+          onSelect={handlePaneCreateSelect}
+          onClose={closePaneCreateMenu}
+        />
+      )}
 
       {/* 所有双击弹出的悬浮配置面板 */}
       {floats.map((fp) => {

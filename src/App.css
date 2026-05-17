@@ -109,3 +109,29 @@ html, body, #root {
 .neihei-port:hover {
   background: #8ab4c8 !important;
 }
+
+/* ===== 画布渲染质量优化：防模糊 ===== */
+
+/* 整个 React Flow 视口层：强制 GPU 抗锯齿 */
+.react-flow__pane,
+.react-flow__viewport {
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
+  backface-visibility: hidden !important;
+}
+
+/* 所有节点：强制子像素抗锯齿 + GPU 合成 */
+/* 注意：不能加 transform/translateZ，否则会覆盖 React Flow 的节点定位 */
+.react-flow__node {
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
+  backface-visibility: hidden !important;
+}
+
+/* 连线路径：抗锯齿 */
+.react-flow__edge-path,
+.react-flow__connection-path {
+  shape-rendering: crispEdges;
+}

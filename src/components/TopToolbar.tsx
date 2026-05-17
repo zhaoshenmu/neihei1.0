@@ -5,17 +5,18 @@
  * 固定在画布顶部，与画布有分隔线
  *
  * 按钮布局（从左到右）：
- * [▶ 运行] [布局 ▼] [管理器] [新建] [历史记录]
+ * [▶ 运行] [提示词广场] [管理器] [新建] [书架]
  *
  * 设计原则：
  * - 全宽横条，底部有分隔线
  * - 按钮靠左排列
  * - 纯文字按钮（仅运行保留图标）
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { theme } from '@/theme/neihei-theme';
 import SettingsPanel from './SettingsPanel';
 import NodeIdTable from './NodeIdTable';
+import PromptSquare from './PromptSquare';
 import { useAppStore } from '@/store/useAppStore';
 
 interface ToolbarAction {
@@ -44,34 +45,13 @@ const btnBase: React.CSSProperties = {
   fontFamily: theme.fontFamily.sans,
 };
 
-const layoutBtnActive: React.CSSProperties = {
-  ...btnBase,
-  color: '#4a9eff',
-  fontWeight: 600,
-};
-
 const TopToolbar: React.FC<TopToolbarProps> = ({ onRun, extraActions }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [runState, setRunState] = useState<'idle' | 'running'>('idle');
   const resetAll = useAppStore((s) => s.resetAll);
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [nodeListOpen, setNodeListOpen] = useState(false);
-  const [layoutOpen, setLayoutOpen] = useState(false);
-  const layoutRef = useRef<HTMLDivElement>(null);
-
-  // 预设布局列表
-  const [layouts] = useState<string[]>(['布局1', '布局2', '布局3']);
-
-  // 点击外部关闭下拉
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (layoutRef.current && !layoutRef.current.contains(e.target as Node)) {
-        setLayoutOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  const [promptSquareOpen, setPromptSquareOpen] = useState(false);
 
   const handleRun = () => {
     if (runState === 'running') return;
@@ -83,16 +63,6 @@ const TopToolbar: React.FC<TopToolbarProps> = ({ onRun, extraActions }) => {
   const handleNew = () => {
     resetAll();
     setNewDialogOpen(false);
-  };
-
-  const handleSaveLayout = () => {
-    console.log('[布局] 保存当前布局');
-    setLayoutOpen(false);
-  };
-
-  const handleLoadLayout = (name: string) => {
-    console.log(`[布局] 加载 "${name}"`);
-    setLayoutOpen(false);
   };
 
   return (
@@ -132,84 +102,15 @@ const TopToolbar: React.FC<TopToolbarProps> = ({ onRun, extraActions }) => {
           {runState === 'running' ? '⏳' : '▶'} 运行
         </button>
 
-        {/* 布局 ▼ 下拉 */}
-        <div ref={layoutRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => setLayoutOpen((v) => !v)}
-            style={layoutOpen ? layoutBtnActive : btnBase}
-            onMouseEnter={(e) => { if (!layoutOpen) e.currentTarget.style.color = '#e0e0e0'; }}
-            onMouseLeave={(e) => { if (!layoutOpen) e.currentTarget.style.color = '#b0b0b0'; }}
-          >
-            布局 ▼
-          </button>
-
-          {layoutOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: '100%',
-                marginTop: 4,
-                background: '#0d0d0d',
-                border: '1px solid #1e1e1e',
-                borderRadius: 8,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-                minWidth: 160,
-                zIndex: 1000,
-                padding: 4,
-              }}
-            >
-              <div
-                onClick={handleSaveLayout}
-                style={{
-                  padding: '8px 14px',
-                  color: '#e0e0e0',
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  borderRadius: 4,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  transition: 'background 100ms',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#1a1a1a'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-              >
-                💾 保存当前布局
-              </div>
-
-              <div style={{ height: 1, background: '#1e1e1e', margin: '4px 8px' }} />
-
-              {layouts.map((name) => (
-                <div
-                  key={name}
-                  onClick={() => handleLoadLayout(name)}
-                  style={{
-                    padding: '8px 14px',
-                    color: '#b0b0b0',
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    borderRadius: 4,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    transition: 'background 100ms',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#1a1a1a'; e.currentTarget.style.color = '#e0e0e0'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#b0b0b0'; }}
-                >
-                  📐 {name}
-                </div>
-              ))}
-
-              {layouts.length === 0 && (
-                <div style={{ padding: '12px 14px', color: '#666', fontSize: 12, textAlign: 'center' }}>
-                  暂无已保存布局
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* 提示词广场 */}
+        <button
+          onClick={() => setPromptSquareOpen(true)}
+          style={btnBase}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#e0e0e0'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = '#b0b0b0'; }}
+        >
+          提示词广场
+        </button>
 
         {/* 管理器 */}
         <button
@@ -231,14 +132,14 @@ const TopToolbar: React.FC<TopToolbarProps> = ({ onRun, extraActions }) => {
           新建
         </button>
 
-        {/* 历史记录 */}
+        {/* 书架 */}
         <button
           onClick={() => {}}
           style={btnBase}
           onMouseEnter={(e) => { e.currentTarget.style.color = '#e0e0e0'; }}
           onMouseLeave={(e) => { e.currentTarget.style.color = '#b0b0b0'; }}
         >
-          历史记录
+          书架
         </button>
 
         {/* 外部传入的额外按钮 */}
@@ -340,6 +241,9 @@ const TopToolbar: React.FC<TopToolbarProps> = ({ onRun, extraActions }) => {
 
       {/* 可拖动的管理器面板 */}
       <SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {/* 提示词广场浮动面板 */}
+      <PromptSquare isOpen={promptSquareOpen} onClose={() => setPromptSquareOpen(false)} />
 
       {/* 节点 ID 管理表格 */}
       {nodeListOpen && <NodeIdTable onClose={() => setNodeListOpen(false)} />}

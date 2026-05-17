@@ -7,10 +7,10 @@ export const CANVAS_CONFIG = {
   defaultViewport: { x: 0, y: 0, zoom: 1 },
   
   /** 最小缩放 */
-  minZoom: 0.25,
+  minZoom: 0.5,
   
   /** 最大缩放 */
-  maxZoom: 2.5,
+  maxZoom: 2,
   
   /** 节点之间的默认间距 */
   nodeGap: 24,
