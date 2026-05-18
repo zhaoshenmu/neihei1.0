@@ -129,15 +129,56 @@ export async function propagateFromNode(sourceNodeId: string) {
 
 /**
  * 初始化数据流引擎（在 App 启动时调用）
- * 监听画布 store 的 nodes 变化
+ * 监听画布 store 的 nodes 变化，当节点数据更新时自动传播
  */
 let initialized = false;
+let unsubscribe: (() => void) | null = null;
 
 export function initDataflowEngine() {
   if (initialized) return;
   initialized = true;
 
   console.log('[数据流引擎] 已启动');
-  // 引擎初始化完成
-  // 节点数据变化时通过 canvas-store 订阅调用 propagateFromNode
+
+  // 订阅 canvas-store 状态变化，监听 dataVersion 递增
+  // Zustand v4 subscribe 接收完整 state，我们手动跟踪 dataVersion 变化
+  let lastDataVersion = useCanvasStore.getState().dataVersion;
+  unsubscribe = useCanvasStore.subscribe(() => {
+    const { dataVersion } = useCanvasStore.getState();
+    // 只在 dataVersion 增长时才触发，防止循环
+    if (dataVersion <= lastDataVersion) return;
+    lastDataVersion = dataVersion;
+
+    // 延迟执行，等待状态稳定
+    setTimeout(() => {
+      const { nodes: currentNodes } = useCanvasStore.getState();
+      if (currentNodes.length === 0) return;
+
+      // 遍历所有节点，找到 data 中有 text 字段的、非 _aiLoading 的节点
+      for (const node of currentNodes) {
+        if (node.data?.text && typeof node.data.text === 'string' && node.data.text.trim().length > 0) {
+          // 避免在 AI loading 期间重复传播
+          if (node.data._aiLoading) continue;
+          propagateFromNode(node.id).catch((err) => {
+            console.error(`[数据流引擎] 传播失败 [${node.id}]:`, err);
+          });
+          break; // 每次只传播一个节点，防止风暴
+        }
+      }
+    }, 100);
+  });
+
+  console.log('[数据流引擎] 订阅已建立');
+}
+
+/**
+ * 停止数据流引擎（清理订阅）
+ */
+export function destroyDataflowEngine() {
+  if (unsubscribe) {
+    unsubscribe();
+    unsubscribe = null;
+  }
+  initialized = false;
+  console.log('[数据流引擎] 已停止');
 }

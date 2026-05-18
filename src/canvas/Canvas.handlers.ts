@@ -3,10 +3,14 @@
  * 处理拖拽、选择、删除等交互事件
  */
 import type { Node, Edge, XYPosition } from '@xyflow/react';
+import { pluginRegistry } from '@/plugin-system/plugin-registry';
+import { useLogStore } from '@/store/log-store';
+import { PLUGIN_DRAG_MIME_TYPE } from '@/constants';
 
 /**
  * 处理从侧边栏拖拽节点到画布
  * 将拖拽数据转换为画布坐标
+ * 校验插件类型是否已注册，未注册则拒绝创建并记录错误
  */
 export function handleDropEvent(
   event: DragEvent,
@@ -16,8 +20,23 @@ export function handleDropEvent(
 ): void {
   event.preventDefault();
 
-  const pluginType = event.dataTransfer?.getData('application/plugin-type');
-  if (!pluginType) {return;}
+  const pluginType = event.dataTransfer?.getData(PLUGIN_DRAG_MIME_TYPE);
+  if (!pluginType) {
+    console.warn('[Canvas] 拖拽数据中缺少 plugin-type');
+    return;
+  }
+
+  // 🔒 P0-1：校验插件类型是否已注册，防止拖入未加载的插件导致崩溃
+  const manifest = pluginRegistry.getManifest(pluginType);
+  if (!manifest) {
+    const errorMsg = `插件类型 "${pluginType}" 未注册，无法添加到画布（可能插件加载失败）`;
+    console.error(`[Canvas] ${errorMsg}`);
+    useLogStore.getState().addLog({
+      type: 'error',
+      message: errorMsg,
+    });
+    return;
+  }
 
   // 将屏幕坐标转换为画布坐标
   const position: XYPosition = {

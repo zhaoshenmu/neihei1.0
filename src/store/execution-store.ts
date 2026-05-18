@@ -28,7 +28,8 @@ export interface NodeExecState {
   nodeId: string;
   status: NodeExecStatus;
   error?: string;
-  result?: any;
+  /** 执行结果，消费者应自行类型断言 */
+  result?: unknown;
   startedAt?: number;
   endedAt?: number;
 }
@@ -42,7 +43,7 @@ interface ExecutionStore {
   setRunning: (nodeId: string) => void;
 
   /** 设置节点为成功 */
-  setSuccess: (nodeId: string, result: any) => void;
+  setSuccess: (nodeId: string, result: unknown) => void;
 
   /** 设置节点为失败（带错误信息） */
   setError: (nodeId: string, error: string) => void;
@@ -75,7 +76,7 @@ export const useExecutionStore = create<ExecutionStore>()(
         }));
       },
 
-      setSuccess: (nodeId: string, result: any) => {
+      setSuccess: (nodeId: string, result: unknown) => {
         set((state) => ({
           states: {
             ...state.states,

@@ -25,6 +25,7 @@ import { usePromptStore } from '@/store/usePromptStore';
 import { usePanelDataStore } from '@/store/usePanelDataStore';
 import { renderPrompt } from '@/utils/prompt-template';
 import { callAi } from '@/services/ai-service';
+import { useExecutionStore } from '@/store/execution-store';
 
 interface Props {
   nodeId: string;
@@ -64,6 +65,8 @@ const OutlinePanel = forwardRef<{ runFromOutside: (startTab?: TabId) => Promise<
     const markStepRunning = useWorldEditorFlowStore((s) => s.markStepRunning);
     const markStepDone = useWorldEditorFlowStore((s) => s.markStepDone);
     const externalTrigger = useWorldEditorFlowStore((s) => s.externalTrigger);
+    const acquireLock = useWorldEditorFlowStore((s) => s.acquireLock);
+    const releaseLock = useWorldEditorFlowStore((s) => s.releaseLock);
     const getPrompt = usePromptStore((s) => s.getPrompt);
     const panelData = usePanelDataStore((s) => s.data);
     const updateNodeData = usePanelDataStore((s) => s.updateNodeData);
@@ -81,9 +84,9 @@ const OutlinePanel = forwardRef<{ runFromOutside: (startTab?: TabId) => Promise<
     }, []);
 
     /** 构建完整的上下文对象（所有已填写的面板数据合并，包含深层对象） */
-    const buildContext = useCallback((): Record<string, any> => {
+    const buildContext = useCallback((): Record<string, unknown> => {
       const nodeData = panelData[nodeId] || {};
-      const context: Record<string, any> = {};
+      const context: Record<string, unknown> = {};
 
       // 直接把面板数据作为扁平上下文
       for (const [key, val] of Object.entries(nodeData)) {
@@ -95,18 +98,27 @@ const OutlinePanel = forwardRef<{ runFromOutside: (startTab?: TabId) => Promise<
 
     /** AI 生成并填充下一个面板的数据（或一致性检查完成后输出最终JSON） */
     const handleRunAI = useCallback(async (_fromExternal?: boolean) => {
-      if (isGenerating) return;
-      const nextTab = NEXT_TAB[activeTab];
-
-      // 一致性检查页面：没有下一个tab，但需要运行AI生成检查报告并打包最终输出
-      const isConsistencyPage = activeTab === 'consistency';
-      if (!nextTab && !isConsistencyPage) return;
-
-      // 标记当前标签为运行中（粉色）
-      markStepRunning(activeTab);
-      setIsGenerating(true);
-      setRunning(true);
+      // 🔒 全局运行锁：防止多个 outline 面板同时运行
+      if (!acquireLock()) {
+        console.warn('[WorldEditor] 另一个面板正在运行，本次跳过');
+        return;
+      }
+      // 🔒 P0-3：同步更新 execution-store，必须先在 try 外声明以让 catch 也能访问
+      const execStore = useExecutionStore.getState();
       try {
+        if (isGenerating) return;
+        const nextTab = NEXT_TAB[activeTab];
+
+        // 一致性检查页面：没有下一个tab，但需要运行AI生成检查报告并打包最终输出
+        const isConsistencyPage = activeTab === 'consistency';
+        if (!nextTab && !isConsistencyPage) return;
+
+        // 标记当前标签为运行中（粉色）
+        markStepRunning(activeTab);
+        setIsGenerating(true);
+        setRunning(true);
+        execStore.setRunning(nodeId);
+
         const promptEntry = getPrompt(activeTab as any);
         const context = buildContext();
         const fullPrompt = renderPrompt(promptEntry.content, context);
@@ -118,6 +130,7 @@ const OutlinePanel = forwardRef<{ runFromOutside: (startTab?: TabId) => Promise<
           throw new Error(response.error || 'AI 调用失败');
         }
         const responseContent = response.content;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let parsedData: Record<string, any>;
         try {
           parsedData = JSON.parse(responseContent);
@@ -133,46 +146,26 @@ const OutlinePanel = forwardRef<{ runFromOutside: (startTab?: TabId) => Promise<
         // 「剧情大纲」面板需要特殊处理：确保 plot_structure 是对象，且包含 three acts
         if (nextTab === 'plot') {
           console.log('[WorldEditor] AI plot 原始返回:', JSON.stringify(parsedData));
-          
-          // 情况1: plot_structure 存在
           if (parsedData.plot_structure) {
             if (typeof parsedData.plot_structure === 'string') {
-              try {
-                parsedData.plot_structure = JSON.parse(parsedData.plot_structure);
-              } catch {
-                parsedData.plot_structure = {};
-              }
+              try { parsedData.plot_structure = JSON.parse(parsedData.plot_structure); }
+              catch { parsedData.plot_structure = {}; }
             }
-            // 确保 plot_structure 是一个对象
-            if (typeof parsedData.plot_structure !== 'object') {
-              parsedData.plot_structure = {};
-            }
+            if (typeof parsedData.plot_structure !== 'object') { parsedData.plot_structure = {}; }
+          } else if (parsedData.first_act || parsedData.second_act || parsedData.third_act) {
+            parsedData.plot_structure = {};
+            if (parsedData.first_act) parsedData.plot_structure.first_act = parsedData.first_act;
+            if (parsedData.second_act) parsedData.plot_structure.second_act = parsedData.second_act;
+            if (parsedData.third_act) parsedData.plot_structure.third_act = parsedData.third_act;
+            delete parsedData.first_act; delete parsedData.second_act; delete parsedData.third_act;
+          } else if (parsedData.act1 || parsedData.act2 || parsedData.act3) {
+            parsedData.plot_structure = {};
+            if (parsedData.act1) parsedData.plot_structure.first_act = parsedData.act1;
+            if (parsedData.act2) parsedData.plot_structure.second_act = parsedData.act2;
+            if (parsedData.act3) parsedData.plot_structure.third_act = parsedData.act3;
+            delete parsedData.act1; delete parsedData.act2; delete parsedData.act3;
           } else {
-            // 情况2: 顶层有 first_act/second_act/third_act，但没有 plot_structure
-            if (parsedData.first_act || parsedData.second_act || parsedData.third_act) {
-              parsedData.plot_structure = {};
-              if (parsedData.first_act) parsedData.plot_structure.first_act = parsedData.first_act;
-              if (parsedData.second_act) parsedData.plot_structure.second_act = parsedData.second_act;
-              if (parsedData.third_act) parsedData.plot_structure.third_act = parsedData.third_act;
-              // 清理顶层字段避免冲突
-              delete parsedData.first_act;
-              delete parsedData.second_act;
-              delete parsedData.third_act;
-            }
-            // 情况3: 顶层有 act1/act2/act3
-            else if (parsedData.act1 || parsedData.act2 || parsedData.act3) {
-              parsedData.plot_structure = {};
-              if (parsedData.act1) parsedData.plot_structure.first_act = parsedData.act1;
-              if (parsedData.act2) parsedData.plot_structure.second_act = parsedData.act2;
-              if (parsedData.act3) parsedData.plot_structure.third_act = parsedData.act3;
-              delete parsedData.act1;
-              delete parsedData.act2;
-              delete parsedData.act3;
-            }
-            // 情况4: 完全没有 plot_structure - 创建空对象
-            else {
-              parsedData.plot_structure = {};
-            }
+            parsedData.plot_structure = {};
           }
           console.log('[WorldEditor] AI plot 处理后:', JSON.stringify(parsedData));
         }
@@ -180,23 +173,15 @@ const OutlinePanel = forwardRef<{ runFromOutside: (startTab?: TabId) => Promise<
         // 「一致性检查」面板需要特殊处理：确保各字段是字符串
         if (nextTab === 'consistency') {
           for (const key of ['characterConsistency', 'worldConsistency', 'plotLogic', 'timeline', 'analysis']) {
-            if (parsedData[key] !== undefined) {
-              parsedData[key] = safeString(parsedData[key]);
-            }
+            if (parsedData[key] !== undefined) { parsedData[key] = safeString(parsedData[key]); }
           }
         }
 
         // 将 AI 生成的数据存入 usePanelDataStore，关联到 nodeId
-        // 重要：所有页面字段都应该是字符串，若有对象则 JSON.stringify 存储
         for (const [key, value] of Object.entries(parsedData)) {
-          // characters 字段是数组，需要保持结构（PageCharacter 读取为对象数组）
-          if (key === 'characters') {
-            updateNodeData(nodeId, key, value);
-          } else if (key === 'plot_structure') {
-            // plot_structure 是嵌套对象（PagePlot 读取 first_act/second_act/third_act）
+          if (key === 'characters' || key === 'plot_structure') {
             updateNodeData(nodeId, key, value);
           } else {
-            // 其他字段统一转为字符串存储
             updateNodeData(nodeId, key, safeString(value));
           }
         }
@@ -213,20 +198,24 @@ const OutlinePanel = forwardRef<{ runFromOutside: (startTab?: TabId) => Promise<
           setActiveTab(nextTab);
           nextStep();
         } else {
-          // 一致性检查完成：通知用户数据已打包到画布
           console.log('[WorldEditor] 一致性检查完成，最终JSON已保存');
         }
-      } catch (err) {
+        // 🔒 P0-3：标记 execution-store 为成功
+        execStore.setSuccess(nodeId, { activeTab, nextTab });
+      } catch (err: unknown) {
         console.error('AI 生成失败:', err);
         const errorMsg = err instanceof Error ? err.message : String(err);
+        // 🔒 P0-3：标记 execution-store 为错误
+        execStore.setError(nodeId, errorMsg);
         // 显示错误 toast
         setSuccessToast(`❌ 生成失败: ${errorMsg}`);
         setTimeout(() => setSuccessToast(null), 3000);
       } finally {
         setIsGenerating(false);
         setRunning(false);
+        releaseLock();
       }
-    }, [activeTab, isGenerating, getPrompt, buildContext, updateNodeData, nodeId, nextStep, showSuccess, setRunning]);
+    }, [activeTab, acquireLock, releaseLock, isGenerating, getPrompt, buildContext, updateNodeData, nodeId, nextStep, showSuccess, setRunning, markStepRunning, markStepDone]);
 
     /** 自动模式：从当前页开始全自动执行 */
     const runAutoSequence = useCallback(async () => {
@@ -253,14 +242,15 @@ const OutlinePanel = forwardRef<{ runFromOutside: (startTab?: TabId) => Promise<
           // 标记当前标签为已完成（绿色）
           markStepDone(current);
           if (response.success) {
-            let parsedData: Record<string, any>;
-            try {
-              parsedData = JSON.parse(response.content);
-            } catch {
-              const jsonMatch = response.content.match(/\{[\s\S]*\}/);
-              if (jsonMatch) parsedData = JSON.parse(jsonMatch[0]);
-              else throw new Error('格式异常');
-            }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let parsedData: Record<string, any>;
+          try {
+            parsedData = JSON.parse(response.content);
+          } catch {
+            const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) parsedData = JSON.parse(jsonMatch[0]);
+            else throw new Error('格式异常');
+          }
 
             // 特殊字段处理 - plot 面板
             if (next === 'plot') {
@@ -517,7 +507,20 @@ const OutlinePanel = forwardRef<{ runFromOutside: (startTab?: TabId) => Promise<
             </span>
           )}
 
-          {/* 手动模式：第2-5页（世界构建~一致性检查）显示运行小箭头，第1页（作品设定）不显示 */}
+          {/* 手动模式：第1页显示提示文字 — 引导用户去顶部工具栏点 "▶ 运行" */}
+          {mode === 'manual' && isFirstTab && (
+            <span
+              style={{
+                fontSize: 12,
+                color: '#808080',
+                marginRight: 'auto',
+              }}
+            >
+              💡 填写作品设定后，点击画布顶部工具栏「▶ 运行」按钮
+            </span>
+          )}
+
+          {/* 手动模式：第2-5页（世界构建~一致性检查）显示运行小箭头 */}
           {mode === 'manual' && canRun && !isFirstTab && (
             <button
               onClick={() => handleRunAI()}

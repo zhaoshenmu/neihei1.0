@@ -53,6 +53,12 @@ interface WorldEditorFlowState {
   reset: () => void;
   /** 触发外部运行 */
   triggerExternalRun: () => void;
+  /** 全局运行锁，防止多个 OutlinePanel 同时运行 */
+  globalRunning: boolean;
+  /** 尝试获取全局运行锁 */
+  acquireLock: () => boolean;
+  /** 释放全局运行锁 */
+  releaseLock: () => void;
 }
 
 const defaultStepStatus = (): Record<TabId, SignalStatus> => ({
@@ -63,6 +69,9 @@ const defaultStepStatus = (): Record<TabId, SignalStatus> => ({
   consistency: 'waiting',
 });
 
+/** 全局运行锁：防止多个 OutlinePanel 同时运行 */
+let _globalRunningLock = false;
+
 export const useWorldEditorFlowStore = create<WorldEditorFlowState>()(
   persist(
     (set, get) => ({
@@ -71,6 +80,17 @@ export const useWorldEditorFlowStore = create<WorldEditorFlowState>()(
       steps: ['setting', 'world', 'character', 'plot', 'consistency'],
       isRunning: false,
       stepStatus: defaultStepStatus(),
+      globalRunning: false,
+      acquireLock: () => {
+        if (_globalRunningLock) return false;
+        _globalRunningLock = true;
+        set({ globalRunning: true });
+        return true;
+      },
+      releaseLock: () => {
+        _globalRunningLock = false;
+        set({ globalRunning: false });
+      },
 
       setMode: (mode) => set({ mode }),
 
@@ -151,6 +171,8 @@ export const useWorldEditorFlowStore = create<WorldEditorFlowState>()(
         mode: state.mode,
         currentStep: state.currentStep,
         steps: state.steps,
+        // 🔒 P1-4：持久化 stepStatus，避免刷新后信号灯状态丢失
+        stepStatus: state.stepStatus,
       }),
     }
   )

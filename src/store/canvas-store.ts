@@ -25,6 +25,8 @@ import {
   addEdge,
 } from '@xyflow/react';
 import { pluginRegistry } from '@/plugin-system/plugin-registry';
+import { useLogStore } from '@/store/log-store';
+import { useUndoStore } from '@/store/undo-store';
 
 export interface CanvasState {
   /** 画布上的所有节点 */
@@ -83,10 +85,74 @@ export const useCanvasStore = create<CanvasState>()(
       },
 
       onConnect: (connection: Connection) => {
-        set({ edges: addEdge(connection, get().edges) });
+        const { edges } = get();
+        // 🔒 P1-1：操作前快照（撤销/重做）
+        useUndoStore.getState().snapshot();
+        
+        // 🔒 P1-3：连线规则校验
+        
+        // 1. 禁止自连接
+        if (connection.source === connection.target) {
+          console.warn('[Canvas] 禁止节点自连接');
+          useLogStore.getState().addLog({
+            type: 'warning',
+            message: '禁止节点自连接',
+          });
+          return;
+        }
+        
+        // 2. 禁止重复边（同一对 source-target 之间只能有一条边）
+        const duplicate = edges.some(
+          (e) => e.source === connection.source && e.target === connection.target
+        );
+        if (duplicate) {
+          console.warn('[Canvas] 禁止重复连线');
+          useLogStore.getState().addLog({
+            type: 'warning',
+            message: '禁止重复连线',
+          });
+          return;
+        }
+        
+        // 3. 循环依赖检测（DFS）
+        const newEdge = { source: connection.source, target: connection.target };
+        const edgeMap = new Map<string, string[]>();
+        for (const edge of [...edges, newEdge]) {
+          if (!edge.source || !edge.target) continue;
+          const list = edgeMap.get(edge.target) || [];
+          list.push(edge.source);
+          edgeMap.set(edge.target, list);
+        }
+        
+        // 从 target 节点反向遍历，看是否能回到 source（形成环路）
+        function hasCycle(nodeId: string, visited: Set<string>): boolean {
+          if (visited.has(nodeId)) return true;
+          visited.add(nodeId);
+          const parents = edgeMap.get(nodeId);
+          if (parents) {
+            for (const parent of parents) {
+              if (hasCycle(parent, visited)) return true;
+            }
+          }
+          visited.delete(nodeId);
+          return false;
+        }
+        
+        if (hasCycle(connection.target, new Set())) {
+          console.warn('[Canvas] 禁止循环依赖连线');
+          useLogStore.getState().addLog({
+            type: 'warning',
+            message: '禁止循环依赖连线',
+          });
+          return;
+        }
+        
+        set({ edges: addEdge(connection, edges) });
       },
 
       addNode: (type: string, position: XYPosition, data?: Record<string, unknown>) => {
+        // 🔒 P1-1：操作前快照（撤销/重做）
+        useUndoStore.getState().snapshot();
         const id = generateNodeId();
         // 从插件注册表获取该类型的 fixedId 并存入 node data
         const fixedId = pluginRegistry.getFixedId(type) || '';
@@ -105,6 +171,8 @@ export const useCanvasStore = create<CanvasState>()(
       },
 
       removeNodes: (ids: string[]) => {
+        // 🔒 P1-1：操作前快照（撤销/重做）
+        useUndoStore.getState().snapshot();
         set({
           nodes: get().nodes.filter(n => !ids.includes(n.id)),
           edges: get().edges.filter(
@@ -114,6 +182,8 @@ export const useCanvasStore = create<CanvasState>()(
       },
 
       removeEdges: (ids: string[]) => {
+        // 🔒 P1-1：操作前快照（撤销/重做）
+        useUndoStore.getState().snapshot();
         set({ edges: get().edges.filter(e => !ids.includes(e.id)) });
       },
 
@@ -131,6 +201,8 @@ export const useCanvasStore = create<CanvasState>()(
       },
 
       clearCanvas: () => {
+        // 🔒 P1-1：操作前快照（撤销/重做）
+        useUndoStore.getState().snapshot();
         set({ nodes: [], edges: [], selectedNodeIds: [] });
       },
 

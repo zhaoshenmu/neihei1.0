@@ -44,3 +44,6 @@ export const PORT_COLORS = {
   OUTPUT: '#b58a6a',
   EXECUTION: '#d4a84b',
 } as const;
+
+/** 插件拖拽 MIME 类型 */
+export const PLUGIN_DRAG_MIME_TYPE = 'application/plugin-type';

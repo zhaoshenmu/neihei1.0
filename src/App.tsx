@@ -35,6 +35,8 @@ import { useLogStore } from '@/store/log-store';
 import { useApiConnectionStore } from '@/store/api-connection-store';
 import { useExecutionStore } from '@/store/execution-store';
 import { useWorldEditorFlowStore } from '@/store/useWorldEditorFlowStore';
+import { useUndoStore } from '@/store/undo-store';
+import { initDataflowEngine, destroyDataflowEngine } from '@/dataflow/engine';
 
 const App: React.FC = () => {
   const [pluginLoaded, setPluginLoaded] = useState(false);
@@ -44,6 +46,11 @@ const App: React.FC = () => {
 
   /** 点击「▶ 运行」按钮时触发 */
   const handleRun = async () => {
+    // 🔒 P1-2：异步操作锁 — 运行时禁止重复点击
+    if (runState === 'running') {
+      console.warn('[运行] 正在执行中，请等待完成');
+      return;
+    }
     const { nodes } = useCanvasStore.getState();
     const addLog = useLogStore.getState().addLog;
 
@@ -137,6 +144,31 @@ const App: React.FC = () => {
     setRunState('idle');
   };
 
+  // 🔒 P1-1：注册键盘快捷键（Ctrl+Z 撤销 / Ctrl+Shift+Z 重做）
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 忽略输入框/文本域中的快捷键
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          // Ctrl+Shift+Z → 重做
+          useUndoStore.getState().redo();
+        } else {
+          // Ctrl+Z → 撤销
+          useUndoStore.getState().undo();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   useEffect(() => {
     useSettingsStore.getState().loadSettings();
 
@@ -144,18 +176,33 @@ const App: React.FC = () => {
       consoleCaptureRef.current = setupConsoleCapture();
     }
 
+    // 🔒 P0-2：初始化数据流引擎，订阅节点变化自动传播 AI 数据
+    initDataflowEngine();
+
     const results = loadAllPlugins();
     const successCount = results.filter(r => r.success).length;
+    const addLog = useLogStore.getState().addLog;
     
     results.forEach(r => {
       if (r.success) {
         console.log(`✅ [${r.type}] 加载成功`);
       } else {
-        console.error(`❌ [${r.type || '未知'}] ${r.error}`);
+        const errorMsg = `❌ [${r.type || '未知'}] ${r.error}`;
+        console.error(errorMsg);
+        // 🔒 P0-4：将插件加载失败写入日志面板，使用户可见
+        addLog({
+          type: 'error',
+          message: `插件加载失败: ${r.type || '未知'}`,
+          detail: r.error,
+        });
       }
     });
 
     setPluginLoaded(true);
+    addLog({
+      type: 'info',
+      message: `插件加载完成: ${successCount}/${results.length}`,
+    });
     console.log(`[NeiHei] 插件加载完成: ${successCount}/${results.length}`);
 
     return () => {
@@ -163,6 +210,7 @@ const App: React.FC = () => {
         consoleCaptureRef.current();
         consoleCaptureRef.current = null;
       }
+      destroyDataflowEngine();
     };
   }, []);
 

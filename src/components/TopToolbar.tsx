@@ -18,6 +18,7 @@ import SettingsPanel from './SettingsPanel';
 import NodeIdTable from './NodeIdTable';
 import PromptSquare from './PromptSquare';
 import { useAppStore } from '@/store/useAppStore';
+import { useUndoStore } from '@/store/undo-store';
 
 interface ToolbarAction {
   label: string;
@@ -56,6 +57,8 @@ const TopToolbar: React.FC<TopToolbarProps> = ({ onRun, extraActions, runState: 
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [nodeListOpen, setNodeListOpen] = useState(false);
   const [promptSquareOpen, setPromptSquareOpen] = useState(false);
+  const canUndo = useUndoStore((s) => s.canUndo);
+  const canRedo = useUndoStore((s) => s.canRedo);
 
   // 使用外部状态（如果提供），否则用内部状态
   const runState = externalRunState || internalRunState;
@@ -93,6 +96,46 @@ const TopToolbar: React.FC<TopToolbarProps> = ({ onRun, extraActions, runState: 
           zIndex: 100,
         }}
       >
+        {/* 🔄 撤销 */}
+        <button
+          onClick={() => useUndoStore.getState().undo()}
+          disabled={!canUndo}
+          title="撤销 (Ctrl+Z)"
+          style={{
+            ...btnBase,
+            opacity: canUndo ? 1 : 0.3,
+            cursor: canUndo ? 'pointer' : 'not-allowed',
+          }}
+          onMouseEnter={(e) => {
+            if (canUndo) e.currentTarget.style.color = '#e0e0e0';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = '#b0b0b0';
+          }}
+        >
+          ↩ 撤销
+        </button>
+
+        {/* 🔄 重做 */}
+        <button
+          onClick={() => useUndoStore.getState().redo()}
+          disabled={!canRedo}
+          title="重做 (Ctrl+Shift+Z)"
+          style={{
+            ...btnBase,
+            opacity: canRedo ? 1 : 0.3,
+            cursor: canRedo ? 'pointer' : 'not-allowed',
+          }}
+          onMouseEnter={(e) => {
+            if (canRedo) e.currentTarget.style.color = '#e0e0e0';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = '#b0b0b0';
+          }}
+        >
+          ↪ 重做
+        </button>
+
         {/* ▶ 运行（最左） */}
         <button
           onClick={handleRun}
