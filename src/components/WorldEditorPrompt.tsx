@@ -32,6 +32,9 @@ interface WorldEditorPromptProps {
   onSwitchVersion: (versionId: number) => void;
   onDeleteVersion: (versionId: number) => void;
   targetPanelLabel?: string;
+  constraintValue?: string;
+  onConstraintChange?: (val: string) => void;
+  constraintLabel?: string;
 }
 
 const PANEL_WIDTH = 600;
@@ -50,6 +53,9 @@ const WorldEditorPrompt: React.FC<WorldEditorPromptProps> = ({
   onSwitchVersion,
   onDeleteVersion,
   targetPanelLabel = '下一个面板',
+  constraintValue = '',
+  onConstraintChange,
+  constraintLabel = '',
 }) => {
   const [viewMode, setViewMode] = useState<'editor' | 'history'>('editor');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; versionId: number } | null>(null);
@@ -287,7 +293,7 @@ const WorldEditorPrompt: React.FC<WorldEditorPromptProps> = ({
           </div>
 
           {/* 中部输入框 */}
-          <div style={{ flex: 1, padding: '12px 16px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <textarea
               ref={textareaRef}
               value={content}
@@ -309,6 +315,37 @@ const WorldEditorPrompt: React.FC<WorldEditorPromptProps> = ({
                 boxSizing: 'border-box',
               }}
             />
+            {/* 约束输入框 */}
+            <div style={{ flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, padding: '0 2px' }}>
+                <span style={{ color: '#c9a84c', fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                  ▸ 约束条件
+                </span>
+                <span style={{ color: '#606060', fontSize: 10 }}>
+                  {constraintLabel ? `（将自动附加到${constraintLabel}的AI调用中）` : '（将自动附加到AI调用中）'}
+                </span>
+              </div>
+              <textarea
+                value={constraintValue ?? ''}
+                onChange={(e) => onConstraintChange?.(e.target.value)}
+                placeholder="输入约束条件，例如：不要出现超自然力量..."
+                style={{
+                  width: '100%',
+                  height: 72,
+                  borderRadius: 10,
+                  background: 'rgba(201, 168, 76, 0.04)',
+                  border: '1px solid rgba(201, 168, 76, 0.2)',
+                  padding: 10,
+                  color: '#d4c080',
+                  resize: 'none',
+                  outline: 'none',
+                  fontSize: 13,
+                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                  lineHeight: 1.5,
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
           </div>
 
           {/* 底部右下角：历史版本 + 保存为新版本 */}

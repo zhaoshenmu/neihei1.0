@@ -6,9 +6,9 @@
 import { create } from 'zustand';
 import { useCanvasStore } from './canvas-store';
 import { useExecutionStore } from './execution-store';
-import { usePanelDataStore } from './usePanelDataStore';
-import { useStickyPanelStore } from './useStickyPanelStore';
-import { useWorldEditorFlowStore } from './useWorldEditorFlowStore';
+import { usePanelDataStore } from './panel-data-store';
+import { useStickyPanelStore } from './sticky-panel-store';
+import { useWorldEditorFlowStore } from './world-editor-flow-store';
 
 interface AppStore {
   /** 新建全部：清空所有数据，保留已保存的工作流 */

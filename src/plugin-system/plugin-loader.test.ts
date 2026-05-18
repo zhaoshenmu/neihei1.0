@@ -14,7 +14,7 @@
  *   loadAllPlugins 全量集成测试需要 Vite 域（如 @vitest/web-worker），属于后续范围。
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // ── 手动提取插件的纯核心逻辑 ──
 // (从 plugin-loader.ts 复制 validateManifestSchema 函数)
@@ -127,7 +127,7 @@ describe('validateManifestSchema', () => {
 
   it('完整有效 manifest 通过校验', () => {
     const manifest = {
-      type: 'outline',
+      type: 'world-editor',
       label: '世界编辑器',
       category: '编辑器',
       icon: '📝',

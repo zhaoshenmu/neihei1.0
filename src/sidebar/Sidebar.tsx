@@ -90,7 +90,7 @@ const Sidebar: React.FC = () => {
             </div>
             <div>暂无可用节点</div>
             <div style={{ marginTop: 8, opacity: 0.6 }}>
-              将节点插件放入 chajian/ 文件夹
+              将节点插件放入 plugins/ 文件夹
             </div>
           </div>
         ) : (

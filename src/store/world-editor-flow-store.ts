@@ -11,12 +11,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-
-export type TabId = 'setting' | 'world' | 'character' | 'plot' | 'consistency';
-
-export type SignalStatus = 'waiting' | 'running' | 'done';
-
-export type EditorMode = 'auto' | 'manual';
+import type { WorldEditorTabId as TabId, SignalStatus, EditorMode } from '@/types';
 
 interface WorldEditorFlowState {
   /** 当前模式 */

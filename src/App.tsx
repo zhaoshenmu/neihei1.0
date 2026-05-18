@@ -16,7 +16,7 @@
  * 关键：Sidebar/WorkflowPanel 绝对定位浮在画布上
  *       画布始终固定，不随面板展开收起而左右移动
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Canvas } from '@/canvas';
 import { Sidebar } from '@/sidebar';
 import { loadAllPlugins } from '@/plugin-system';
@@ -29,120 +29,28 @@ import VaultPanel from '@/components/VaultPanel';
 import type { VaultTab } from '@/components/vault-types';
 import WorkflowPanel from '@/components/WorkflowPanel';
 import './App.css';
-import { useCanvasStore } from '@/store/canvas-store';
-import { callAi } from '@/services/ai-service';
 import { useLogStore } from '@/store/log-store';
-import { useApiConnectionStore } from '@/store/api-connection-store';
-import { useExecutionStore } from '@/store/execution-store';
-import { useWorldEditorFlowStore } from '@/store/useWorldEditorFlowStore';
 import { useUndoStore } from '@/store/undo-store';
 import { initDataflowEngine, destroyDataflowEngine } from '@/dataflow/engine';
+import { useRunHandler } from '@/hooks/useRunHandler';
+import { useWorldEditorFlowStore } from '@/store/world-editor-flow-store';
 
 const App: React.FC = () => {
   const [pluginLoaded, setPluginLoaded] = useState(false);
   const consoleCaptureRef = useRef<(() => void) | null>(null);
   const [activeTab, setActiveTab] = useState<VaultTab | null>(null);
-  const [runState, setRunState] = useState<'idle' | 'running'>('idle');
+
+  // 抽离运行逻辑到独立 hook
+  const { handleRun } = useRunHandler();
+
+  // 直接从 Zustand store 读取运行状态，避免 setInterval 轮询
+  const flowIsRunning = useWorldEditorFlowStore((s) => s.isRunning);
+  const uiRunState: 'idle' | 'running' = flowIsRunning ? 'running' : 'idle';
 
   /** 点击「▶ 运行」按钮时触发 */
-  const handleRun = async () => {
-    // 🔒 P1-2：异步操作锁 — 运行时禁止重复点击
-    if (runState === 'running') {
-      console.warn('[运行] 正在执行中，请等待完成');
-      return;
-    }
-    const { nodes } = useCanvasStore.getState();
-    const addLog = useLogStore.getState().addLog;
-
-    // 检测画布上是否有 OutlineNode（世界编辑器）
-    const outlineNode = nodes.find((n) => n.type === 'outline' || n.type?.includes('Outline'));
-    
-    if (outlineNode) {
-      // 触发世界编辑器流程
-      addLog({ type: 'info', message: '[运行] 检测到世界编辑器节点，启动流程...' });
-      useWorldEditorFlowStore.getState().triggerExternalRun();
-      return;
-    }
-
-    // 原有逻辑：遍历所有边，提取源节点text → 调AI → 写入目标节点aiOutput
-    const { edges } = useCanvasStore.getState();
-    const execStore = useExecutionStore.getState();
-
-    if (edges.length === 0) {
-      addLog({ type: 'info', message: '[运行] 没有连线，跳过' });
-      setRunState('idle');
-      return;
-    }
-
-    addLog({ type: 'info', message: `[运行] 开始处理 ${edges.length} 条连线...` });
-
-    for (const edge of edges) {
-      const sourceNode = nodes.find((n) => n.id === edge.source);
-      const targetNode = nodes.find((n) => n.id === edge.target);
-
-      if (!sourceNode || !targetNode) continue;
-
-      const text = sourceNode.data?.text as string;
-      if (!text || text.trim().length === 0) {
-        addLog({ type: 'warning', message: `[运行] ${sourceNode.id} 没有输入内容，跳过` });
-        continue;
-      }
-
-      addLog({ type: 'info', message: `[运行] ${sourceNode.id} → ${targetNode.id} : "${text.substring(0, 30)}..."` });
-
-      // 运行前清空上次的错误/输出，避免旧信息残留
-      useCanvasStore.getState().updateNodeData(targetNode.id, {
-        aiOutput: '',
-        _aiLoading: true,
-      });
-
-      // 标记源节点为运行中（边框变蓝）
-      execStore.setRunning(sourceNode.id);
-      // 也标记目标节点为运行中
-      execStore.setRunning(targetNode.id);
-
-      try {
-        const result = await callAi([{ role: 'user', content: text }]);
-
-        if (result.success) {
-          useCanvasStore.getState().updateNodeData(targetNode.id, {
-            aiOutput: result.content,
-            _aiLoading: false,
-          });
-          // 标记源节点和目标节点为成功（边框变绿）
-          execStore.setSuccess(sourceNode.id, { text });
-          execStore.setSuccess(targetNode.id, result.content);
-          addLog({ type: 'success', message: `[运行] AI回复已写入 ${targetNode.id}` });
-        } else {
-          useCanvasStore.getState().updateNodeData(targetNode.id, {
-            aiOutput: `❌ ${result.error}`,
-            _aiLoading: false,
-          });
-          // 目标节点标记为错误（边框变红）
-          execStore.setError(targetNode.id, result.error || '未知错误');
-          execStore.setSuccess(sourceNode.id, { text });
-          // 运行失败 → 该 API 绿灯灭
-          if (result.apiId) {
-            useApiConnectionStore.getState().setStatus(result.apiId, 'disconnected');
-          }
-          addLog({ type: 'error', message: `[运行] AI调用失败: ${result.error || '未知错误'}` });
-        }
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        useCanvasStore.getState().updateNodeData(targetNode.id, {
-          aiOutput: `❌ ${errorMsg}`,
-          _aiLoading: false,
-        });
-        // 目标节点标记为错误（边框变红）
-        execStore.setError(targetNode.id, errorMsg);
-        execStore.setSuccess(sourceNode.id, { text });
-        addLog({ type: 'error', message: `[运行] 异常: ${errorMsg}` });
-      }
-    }
-
-    addLog({ type: 'success', message: '[运行] 全部处理完成' });
-    setRunState('idle');
-  };
+  const onRunClick = useCallback(() => {
+    handleRun();
+  }, [handleRun]);
 
   // 🔒 P1-1：注册键盘快捷键（Ctrl+Z 撤销 / Ctrl+Shift+Z 重做）
   useEffect(() => {
@@ -214,21 +122,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // 监听世界编辑器流程的 isRunning 状态，同步到 runState
-  const flowIsRunning = useWorldEditorFlowStore((s) => s.isRunning);
-  useEffect(() => {
-    // 当编辑器流程在运行时，按钮置为 running；空闲时恢复 idle
-    // 但只有当 we are in editor mode (有outline节点) 时才同步
-    const { nodes } = useCanvasStore.getState();
-    const hasOutlineNode = nodes.some((n) => n.type === 'outline' || n.type?.includes('Outline'));
-    if (hasOutlineNode) {
-      setRunState(flowIsRunning ? 'running' : 'idle');
-    }
-  }, [flowIsRunning]);
-
-  // 监听非编辑器流程的完成（原始节点流程在 handleRun 末尾自行 setState）
-  // 这个 useEffect 只负责编辑器模式下的同步
-
   return (
     <div
       style={{
@@ -242,9 +135,8 @@ const App: React.FC = () => {
     >
       {/* 顶部标题栏（全宽横条，固定高度，带底部分隔线） */}
       <TopToolbar 
-        onRun={handleRun} 
-        runState={runState}
-        onRunStateChange={(state) => setRunState(state)}
+        onRun={onRunClick} 
+        runState={uiRunState}
       />
 
       {/* ── 画布模式（唯一模式） ── */}

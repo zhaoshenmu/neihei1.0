@@ -17,6 +17,46 @@ export const CANVAS = {
   DOT_GAP: 24,
 } as const;
 
+/** 
+ * 画布 UI 配置（原 Canvas.config.ts 已合并至此，请勿在其他位置重复定义）
+ * 所有画布配置集中于此，确保单一数据源
+ */
+export const CANVAS_CONFIG = {
+  /** 默认缩放级别 */
+  defaultViewport: { x: 0, y: 0, zoom: 1 },
+  /** 最小缩放 */
+  minZoom: 0.25,
+  /** 最大缩放 */
+  maxZoom: 2.5,
+  /** 节点之间的默认间距 */
+  nodeGap: 24,
+  /** 拖拽时吸附网格大小 (0 表示不吸附) */
+  snapToGrid: 20,
+  /** 边缘动画持续时间 (ms) */
+  edgeAnimationDuration: 300,
+  /** 连接线样式 - 灰色 */
+  edgeStyle: {
+    stroke: '#555555',
+    strokeWidth: 1.5,
+    animated: false,
+  },
+  /** 选中边样式 - 淡蓝灰 */
+  edgeSelectedStyle: {
+    stroke: '#6a9fb5',
+    strokeWidth: 2,
+    animated: true,
+  },
+  /** 默认连线类型 */
+  edgeType: 'smoothstep' as const,
+  /** 背景网格配置 */
+  backgroundPattern: {
+    color: '#2a2a2a',
+    size: 24,
+    gap: 4,
+    thickness: 0.5,
+  },
+} as const;
+
 /** 节点尺寸常量 */
 export const NODE = {
   MIN_WIDTH: 200,
@@ -32,10 +72,11 @@ export const LOG_PANEL = {
   MAX_ENTRIES: 1000,
 } as const;
 
-/** 存储键名 */
+/** 存储键名（必须与各 persist store 的 name 一致） */
 export const STORAGE_KEYS = {
-  CANVAS_STATE: 'neihei_canvas_state',
+  CANVAS_STATE: 'neihei-canvas',
   THEME: 'neihei_theme',
+  WORLD_EDITOR_FLOW: 'neihei-world-editor-flow',
 } as const;
 
 /** 默认端口颜色（按类型） */

@@ -4,7 +4,7 @@
  * 连接到 usePanelDataStore，基于已有数据动态生成报告
  */
 import React from 'react';
-import { usePanelDataStore } from '@/store/usePanelDataStore';
+import { usePanelDataStore } from '@/store/panel-data-store';
 
 interface Props {
   nodeId: string;
@@ -103,7 +103,6 @@ const styles: Record<string, React.CSSProperties> = {
 function extractScoreFromAI(val: any): number | null {
   if (typeof val !== 'string') return null;
   const trimmed = val.trim();
-  // 匹配 "数字/10" 或 "数字分" 或 "数字" 开头
   const match = trimmed.match(/(\d+)(?:\s*\/\s*10)?/);
   if (match) {
     const score = parseInt(match[1], 10);
@@ -170,9 +169,9 @@ function calculateScoresLocally(data: Record<string, any>) {
     const totalActLen = strLen(plotStruct.first_act) + strLen(plotStruct.second_act) + strLen(plotStruct.third_act);
     if (totalActLen > 100) plotScore += 1;
   }
-  if (strLen(data['第一幕_summary']) > 5) plotScore += 1;
-  if (strLen(data['第二幕_summary']) > 5) plotScore += 1;
-  if (strLen(data['第三幕_summary']) > 5) plotScore += 1;
+  if (strLen(data.firstAct) > 5) plotScore += 1;
+  if (strLen(data.secondAct) > 5) plotScore += 1;
+  if (strLen(data.thirdAct) > 5) plotScore += 1;
 
   let timelineScore = 5;
   if (strLen(data.chapterWordCount) > 0) timelineScore += 2;
@@ -203,7 +202,13 @@ export default function PageConsistency({ nodeId }: Props) {
     (s) => s.data[nodeId] !== undefined ? s.data[nodeId]! : STABLE_EMPTY_DATA
   );
 
-  // 先尝试读取AI生成的真实评分数据
+  // 读取新格式的独立评分字段（纯数字），优先使用
+  const characterScoreFromField = data.characterConsistencyScore !== undefined ? Number(data.characterConsistencyScore) : 0;
+  const worldScoreFromField = data.worldConsistencyScore !== undefined ? Number(data.worldConsistencyScore) : 0;
+  const plotLogicScoreFromField = data.plotLogicScore !== undefined ? Number(data.plotLogicScore) : 0;
+  const timelineScoreFromField = data.timelineScore !== undefined ? Number(data.timelineScore) : 0;
+
+  // 读取详情文本（已由 process-ai-response 清理过前导评分文字）
   const aiCharacterConsistency = data.characterConsistency as string | undefined;
   const aiWorldConsistency = data.worldConsistency as string | undefined;
   const aiPlotLogic = data.plotLogic as string | undefined;
@@ -216,10 +221,14 @@ export default function PageConsistency({ nodeId }: Props) {
     aiWorldConsistency?.trim() ||
     aiPlotLogic?.trim() ||
     aiTimeline?.trim() ||
-    aiAnalysis?.trim()
+    aiAnalysis?.trim() ||
+    characterScoreFromField > 0 ||
+    worldScoreFromField > 0 ||
+    plotLogicScoreFromField > 0 ||
+    timelineScoreFromField > 0
   );
 
-  // 从AI数据中提取分数
+  // 从AI数据中提取分数（旧格式兜底）
   const aiScores = hasAIData ? {
     characterConsistency: extractScoreFromAI(aiCharacterConsistency) || null,
     worldConsistency: extractScoreFromAI(aiWorldConsistency) || null,
@@ -230,26 +239,26 @@ export default function PageConsistency({ nodeId }: Props) {
   // 本地算法兜底
   const localScores = calculateScoresLocally(data);
 
-  // 最终使用的评分：优先AI分数，AI分数提取失败则用本地分数
+  // 最终使用的评分优先级：新格式独立分数 > 从AI文本提取 > 本地算法
   const reportData = [
     {
       label: '人物一致性',
-      score: aiScores?.characterConsistency ?? localScores.characterConsistency,
+      score: characterScoreFromField > 0 ? characterScoreFromField : (aiScores?.characterConsistency ?? localScores.characterConsistency),
       aiDetail: aiCharacterConsistency || '',
     },
     {
       label: '世界观一致性',
-      score: aiScores?.worldConsistency ?? localScores.worldConsistency,
+      score: worldScoreFromField > 0 ? worldScoreFromField : (aiScores?.worldConsistency ?? localScores.worldConsistency),
       aiDetail: aiWorldConsistency || '',
     },
     {
       label: '情节逻辑',
-      score: aiScores?.plotLogic ?? localScores.plotLogic,
+      score: plotLogicScoreFromField > 0 ? plotLogicScoreFromField : (aiScores?.plotLogic ?? localScores.plotLogic),
       aiDetail: aiPlotLogic || '',
     },
     {
       label: '时间线',
-      score: aiScores?.timeline ?? localScores.timeline,
+      score: timelineScoreFromField > 0 ? timelineScoreFromField : (aiScores?.timeline ?? localScores.timeline),
       aiDetail: aiTimeline || '',
     },
   ];

@@ -17,7 +17,7 @@ import { theme } from '@/theme/neihei-theme';
 import SettingsPanel from './SettingsPanel';
 import NodeIdTable from './NodeIdTable';
 import PromptSquare from './PromptSquare';
-import { useAppStore } from '@/store/useAppStore';
+import { useAppStore } from '@/store/app-store';
 import { useUndoStore } from '@/store/undo-store';
 
 interface ToolbarAction {

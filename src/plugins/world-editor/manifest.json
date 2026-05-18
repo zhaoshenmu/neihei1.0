@@ -1,5 +1,5 @@
 {
-  "type": "outline",
+  "type": "world-editor",
   "label": "世界编辑器",
   "category": "核心",
   "icon": "📋",

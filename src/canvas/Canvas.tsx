@@ -22,7 +22,7 @@ import '@xyflow/react/dist/style.css';
 import { useCanvasStore } from '@/store';
 import { buildNodeTypes } from '@/nodes';
 import { theme } from '@/theme/neihei-theme';
-import { CANVAS_CONFIG } from './Canvas.config';
+import { CANVAS_CONFIG } from '@/constants';
 import BezierEdge from './BezierEdge';
 import FlowEdge from './FlowEdge';
 import CanvasControls from './CanvasControls';
@@ -32,7 +32,7 @@ import { useSettingsStore } from '@/store/settings-store';
 import { handleDropEvent, handleKeyDelete } from './Canvas.handlers';
 import ContextMenu from './ContextMenu';
 import QuickConnectMenu from './QuickConnectMenu';
-import { PANEL_WIDTH, PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT } from '@/chajian/OutlineNode/types';
+import { PANEL_WIDTH, PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT } from '@/plugins/world-editor/types';
 
 import { useFloatingPanels } from './useFloatingPanels';
 import { useCanvasContextMenu } from './useCanvasContextMenu';
@@ -253,7 +253,7 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
   const renderFloatPanels = () =>
     floats.map((fp) => {
       const alreadyStickied = isStickied(fp.nodeId);
-      const isOutline = fp.pluginType === 'outline';
+      const isOutline = fp.pluginType === 'world-editor';
       return (
         <FloatingContainer
           key={fp.id}

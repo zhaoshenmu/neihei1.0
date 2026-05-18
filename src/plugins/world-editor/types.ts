@@ -1,5 +1,4 @@
-/** 大纲编辑器面板的标签页类型 */
-export type TabId = 'setting' | 'world' | 'character' | 'plot' | 'consistency';
+import type { WorldEditorTabId as TabId } from '@/types';
 
 /** 标签页定义 */
 export interface TabDef {
@@ -21,3 +20,5 @@ export const PANEL_WIDTH = 400;
 export const PANEL_DEFAULT_HEIGHT = 900;
 export const PANEL_MIN_HEIGHT = 400;
 export const PANEL_MAX_HEIGHT = 1200;
+
+export type { TabId };

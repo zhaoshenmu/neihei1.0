@@ -1,0 +1,122 @@
+/**
+ * 大纲编辑器页面通用样式
+ *
+ * PageSetting / PageWorld / PageCharacter / PagePlot / PageConsistency
+ * 5 个页面共享完全相同的 UI 样式，此处集中定义一次，各页导入使用
+ */
+import type { CSSProperties } from 'react';
+
+/** 通用样式对象 */
+export const pageStyles: Record<string, CSSProperties> = {
+  sectionTitle: {
+    fontSize: 14,
+    margin: '12px 0 6px',
+    fontWeight: 600,
+    color: '#b84a4a',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  desc: {
+    fontSize: 12,
+    color: '#808080',
+    marginBottom: 6,
+  },
+  textarea: {
+    width: '100%',
+    height: 80,
+    borderRadius: 10,
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid #1e1e1e',
+    padding: 10,
+    color: '#e0e0e0',
+    resize: 'none',
+    outline: 'none',
+    fontSize: 12,
+    boxSizing: 'border-box' as const,
+    fontFamily: "'Inter', 'Segoe UI', sans-serif",
+    userSelect: 'text' as const,
+  },
+  row: {
+    display: 'flex',
+    gap: 8,
+  },
+  radioBtn: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '8px 10px',
+    borderRadius: 10,
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid #1e1e1e',
+    fontSize: 12,
+    color: '#b0b0b0',
+    cursor: 'pointer',
+    transition: 'all 150ms ease',
+    userSelect: 'none' as const,
+  },
+  radioBtnActive: {
+    background: 'rgba(106, 159, 181, 0.15)',
+    border: '1px solid #6a9fb5',
+    color: '#e0e0e0',
+  },
+  radioCircle: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    border: '2px solid #808080',
+    flexShrink: 0,
+  },
+  radioCircleActive: {
+    border: '2px solid #6a9fb5',
+    background: '#6a9fb5',
+  },
+  input: {
+    width: '100%',
+    height: 36,
+    borderRadius: 10,
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid #1e1e1e',
+    padding: '0 10px',
+    color: '#e0e0e0',
+    outline: 'none',
+    fontSize: 12,
+    boxSizing: 'border-box' as const,
+    fontFamily: "'Inter', 'Segoe UI', sans-serif",
+    userSelect: 'text' as const,
+  },
+  smallLabel: {
+    fontSize: 12,
+    color: '#808080',
+    marginBottom: 4,
+    userSelect: 'text' as const,
+  },
+  selectBox: {
+    height: 36,
+    borderRadius: 10,
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid #1e1e1e',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 10px',
+    justifyContent: 'space-between',
+    fontSize: 12,
+    color: '#808080',
+    cursor: 'pointer',
+  },
+  bigBox: {
+    height: 60,
+    borderRadius: 10,
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid #1e1e1e',
+    display: 'flex',
+    alignItems: 'center',
+    paddingLeft: 12,
+    fontSize: 13,
+    color: '#b0b0b0',
+  },
+  plus: { fontSize: 18, color: '#808080', cursor: 'pointer' },
+  arrow: { fontSize: 12, color: '#666' },
+  unit: { fontSize: 12, color: '#666' },
+};

@@ -188,6 +188,8 @@ export const useCanvasStore = create<CanvasState>()(
       },
 
       updateNodeData: (nodeId: string, data: Record<string, unknown>) => {
+        // 🔒 P1-1：操作前快照（撤销/重做）
+        useUndoStore.getState().snapshot();
         set({
           nodes: get().nodes.map(n =>
             n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n

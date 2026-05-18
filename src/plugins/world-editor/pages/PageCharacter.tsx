@@ -2,18 +2,12 @@
  * 人物核心 - 面板第三页
  * 主要角色列表 + 角色欲望/缺陷/弧光
  * 连接到 usePanelDataStore，实现数据双向绑定
- * 
+ *
  * 数据结构: characters: [{ name, desire, flaw, arc, ... }]
  * 兼容旧格式: characters: ["主角", "反派"] + desire/flaw/arc 作为全局字段
- * 
- * ⚠️ BUG修复历史：
- *   - 原使用 s.data[nodeId]?.characters ?? [] 虽不会无限循环，
- *     但当 characters 从 undefined 第一次被写入时，zustand 对比两次 selector 返回值不同（[] vs [实际数据]）
- *     触发正常重渲染，这是预期行为
- *   - 真正无限循环是 s.data[nodeId] ?? {}（容器级），已在 PageSetting/PageWorld 修复
  */
 import React, { useState, useMemo } from 'react';
-import { usePanelDataStore } from '@/store/usePanelDataStore';
+import { usePanelDataStore } from '@/store/panel-data-store';
 
 interface Props {
   nodeId: string;
@@ -123,8 +117,6 @@ const styles: Record<string, React.CSSProperties> = {
 const STABLE_EMPTY_ARRAY: any[] = [];
 
 export default function PageCharacter({ nodeId }: Props) {
-  // ⚠️ 重要：当 characters 为 undefined 时返回 STABLE_EMPTY_ARRAY（稳定引用）
-  // 避免 zustand 对比出"变化"触发不必要渲染
   const charactersRaw = usePanelDataStore(
     (s) => {
       const val = s.data[nodeId]?.characters;
@@ -132,16 +124,14 @@ export default function PageCharacter({ nodeId }: Props) {
     }
   );
   const updateNodeData = usePanelDataStore((s) => s.updateNodeData);
-  
-  // 构建统一的人物列表（兼容字符串、数组、对象等各种旧格式）
+
+  // 构建统一的角色列表（兼容字符串、数组、对象等各种旧格式）
   const characterList: CharacterItem[] = useMemo(() => {
     if (Array.isArray(charactersRaw)) {
       return charactersRaw.map((c: any) => {
         if (typeof c === 'string') {
-          // 旧格式：只是字符串名称
           return { name: c, desire: '', flaw: '', arc: '' };
         }
-        // 新格式：对象 { name, desire, flaw, arc }
         return {
           name: c?.name || '',
           desire: c?.desire || '',
@@ -150,8 +140,7 @@ export default function PageCharacter({ nodeId }: Props) {
         };
       });
     }
-    
-    // 兼容旧版：如果 characters 是纯字符串（如 "主角,反派"）
+
     if (typeof charactersRaw === 'string' && charactersRaw.trim()) {
       return charactersRaw.split(/[,，、\s]+/).filter(Boolean).map(name => ({
         name: name.trim(),
@@ -160,27 +149,24 @@ export default function PageCharacter({ nodeId }: Props) {
         arc: '',
       }));
     }
-    
+
     return [];
   }, [charactersRaw]);
 
   const [activeCharIdx, setActiveCharIdx] = useState(0);
   const activeChar = characterList[activeCharIdx];
 
-  /** 获取角色的某个字段 */
   const getCharField = (field: keyof CharacterItem): string => {
     if (!activeChar) return '';
     return activeChar[field] || '';
   };
 
-  /** 更新角色的某个字段 - 直接修改 characters 数组 */
   const setCharField = (field: keyof CharacterItem, value: string) => {
     if (!Array.isArray(charactersRaw)) return;
-    
+
     const updatedChars = charactersRaw.map((c: any, idx: number) => {
       if (idx !== activeCharIdx) return c;
       if (typeof c === 'string') {
-        // 旧格式升级为新格式
         return {
           name: c,
           desire: field === 'desire' ? value : '',
@@ -190,7 +176,7 @@ export default function PageCharacter({ nodeId }: Props) {
       }
       return { ...c, [field]: value };
     });
-    
+
     updateNodeData(nodeId, 'characters', updatedChars);
   };
 
@@ -219,7 +205,7 @@ export default function PageCharacter({ nodeId }: Props) {
             {char.name || `角色${idx + 1}`}
           </div>
         ))}
-        <div style={styles.sideAdd}>＋ 添加</div>
+        <div style={styles.sideAdd}>+ 添加</div>
       </div>
 
       {/* 右侧角色详情 */}

@@ -1,11 +1,11 @@
 /**
  * 插件自动加载器
  * 使用 Vite 的 import.meta.glob 实现真正的自动注册
- * 用户只需将插件文件夹放入 chajian/ 目录，系统自动扫描加载
+ * 用户只需将插件文件夹放入 plugins/ 目录，系统自动扫描加载
  * 
  * 加载策略：
- * 1. 扫描 chajian 下所有 manifest.json 获取插件元数据
- * 2. 扫描 chajian 下所有 index.tsx 获取插件组件
+ * 1. 扫描 plugins 下所有 manifest.json 获取插件元数据
+ * 2. 扫描 plugins 下所有 index.tsx 获取插件组件
  * 3. 匹配文件夹名，将 manifest 和组件组合注册
  */
 import { pluginRegistry } from './plugin-registry';
@@ -71,35 +71,30 @@ function validateManifestSchema(data: Record<string, unknown>): { valid: boolean
 }
 
 /**
- * 动态导入所有插件的 manifest.json
+ * ⚠️ Vite 的 import.meta.glob 参数必须是直接字面量字符串，不能使用变量或 const
+ * 此处不能抽取常量，必须直接写字符串
  */
 const manifestModules = import.meta.glob<Record<string, unknown>>(
-  '../chajian/*/manifest.json',
+  '../plugins/*/manifest.json',
   { eager: true, import: 'default' }
 );
 
-/**
- * 动态导入所有插件的 index.tsx（组件）
- */
 const componentModules = import.meta.glob<Record<string, unknown>>(
-  '../chajian/*/index.tsx',
+  '../plugins/*/index.tsx',
   { eager: true, import: 'default' }
 );
 
-/**
- * 动态导入所有插件的 Panel.tsx（面板组件，可选）
- */
 const panelModules = import.meta.glob<Record<string, unknown>>(
-  '../chajian/*/Panel.tsx',
+  '../plugins/*/Panel.tsx',
   { eager: true, import: 'default' }
 );
 
 /**
  * 从路径中提取文件夹名
- * e.g. '../chajian/OutlineNode/manifest.json' => 'OutlineNode'
+ * e.g. '../plugins/OutlineNode/manifest.json' => 'OutlineNode'
  */
 function getFolderName(path: string): string {
-  const match = path.match(/chajian\/([^/]+)\//);
+  const match = path.match(/plugins\/([^/]+)\//);
   return match ? match[1] : '';
 }
 

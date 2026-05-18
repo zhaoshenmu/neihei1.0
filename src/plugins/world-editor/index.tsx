@@ -9,8 +9,8 @@
 import React from 'react';
 import type { NodeProps } from '@xyflow/react';
 import { TABS } from './types';
-import { useWorldEditorFlowStore } from '@/store/useWorldEditorFlowStore';
-import type { SignalStatus, TabId } from '@/store/useWorldEditorFlowStore';
+import { useWorldEditorFlowStore } from '@/store/world-editor-flow-store';
+import type { SignalStatus, WorldEditorTabId as TabId } from '@/types';
 
 /** 信号原点颜色映射 */
 const SIGNAL_COLORS: Record<SignalStatus, string> = {

@@ -14,3 +14,13 @@ export type {
 } from '@/plugin-system/plugin-types';
 
 export type { DataPacket, Triple, DataFlowEdge } from '@/dataflow/data-packet';
+
+/**
+ * 世界编辑器/大纲流程相关类型
+ * 定义在此处避免 types.ts 与 world-editor-flow-store.ts 重复定义
+ */
+export type WorldEditorTabId = 'setting' | 'world' | 'character' | 'plot' | 'consistency';
+
+export type SignalStatus = 'waiting' | 'running' | 'done';
+
+export type EditorMode = 'auto' | 'manual';

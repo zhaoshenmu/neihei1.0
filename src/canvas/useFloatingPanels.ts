@@ -7,8 +7,8 @@
 import { useState, useCallback } from 'react';
 import { type Node } from '@xyflow/react';
 import { pluginRegistry } from '@/plugin-system/plugin-registry';
-import { useStickyPanelStore } from '@/store/useStickyPanelStore';
-import { PANEL_WIDTH, PANEL_DEFAULT_HEIGHT } from '@/chajian/OutlineNode/types';
+import { useStickyPanelStore } from '@/store/sticky-panel-store';
+import { PANEL_WIDTH, PANEL_DEFAULT_HEIGHT } from '@/plugins/world-editor/types';
 
 /** 每个弹出浮窗的状态 */
 export interface FloatingPanel {
@@ -89,7 +89,7 @@ export function useFloatingPanels() {
       }
 
       // 大纲编辑器使用固定宽 400、默认高 900
-      const isOutline = pluginType === 'outline';
+      const isOutline = pluginType === 'world-editor';
       const w = isOutline ? PANEL_WIDTH : 420;
       const h = isOutline ? PANEL_DEFAULT_HEIGHT : 300;
       const cx = Math.max(0, (window.innerWidth - w) / 2);
