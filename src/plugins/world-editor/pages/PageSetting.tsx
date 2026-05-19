@@ -43,7 +43,7 @@ export default function PageSetting({ nodeId }: Props) {
   const totalWordCount = usePanelDataStore((s) => (s.data[nodeId]?.totalWordCount as string) ?? '');
   const updateNodeData = usePanelDataStore((s) => s.updateNodeData);
 
-  const setVal = (key: string, val: any) => updateNodeData(nodeId, key, val);
+  const setVal = (key: string, val: unknown) => updateNodeData(nodeId, key, val);
 
   // ========== 风格下拉状态 ==========
   const [styleDropdownOpen, setStyleDropdownOpen] = useState(false);

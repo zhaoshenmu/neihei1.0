@@ -35,7 +35,7 @@ export interface NodeExecState {
 }
 
 /** 执行状态存储 */
-interface ExecutionStore {
+export interface ExecutionState {
   /** 所有节点的执行状态 keyed by nodeId */
   states: Record<string, NodeExecState>;
 
@@ -53,12 +53,9 @@ interface ExecutionStore {
 
   /** 重置所有节点到 idle */
   resetAll: () => void;
-
-  /** 获取某个节点的状态 */
-  getNodeState: (nodeId: string) => NodeExecState | undefined;
 }
 
-export const useExecutionStore = create<ExecutionStore>()(
+export const useExecutionStore = create<ExecutionState>()(
   persist(
     (set, get) => ({
       states: {},

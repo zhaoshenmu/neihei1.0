@@ -89,5 +89,3 @@ export const theme = {
     slow: '300ms ease',
   },
 } as const;
-
-export default theme;
