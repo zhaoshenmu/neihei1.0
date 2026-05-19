@@ -6,11 +6,9 @@
 
 | fixedId | 插件类型 | 标签 | 类型 |
 |---------|---------|------|------|
-| 001 | world-editor | 世界编辑器 | 节点 |
-| 002 | character-node | 角色节点 | 节点 |
-| 003 | plot-node | 剧情节点 | 节点 |
+| 001 | memory (zhang-gu-si) | 掌故司 | 节点 |
+| 003 | world-editor | 世界编辑器 | 节点 |
 | 004 | smart-console | 智能控制台 | **面板(floating)** |
-| 005 | zhang-gu-si | 张古斯 | 节点 |
 
 ## 注册规则
 

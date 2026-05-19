@@ -107,14 +107,20 @@ const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
 
   // 状态提升：每个按钮独立维护内容 + 版本历史 + 编号
   const STORAGE_KEY = 'neihei-prompt-square-states';
+  // 当前缓存格式版本号，bump 此值可强制清除旧缓存（例如新增字段时）
+  const CACHE_VERSION = 2;
   const [buttonStates, setButtonStates] = useState<Record<string, EditorButtonState>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // 版本升级检测：如果 character 按钮（→剧情大纲面板）的缓存不包含章节规划关键词，
-        // 则判定为旧版本缓存，直接删除整个 localStorage，让新默认提示词完全生效
-        if (parsed.character && parsed.character.content && !/第.*章/.test(parsed.character.content)) {
+        // 缓存版本检测：如果版本号不匹配，清除旧缓存
+        if (parsed._cacheVersion !== CACHE_VERSION) {
+          localStorage.removeItem(STORAGE_KEY);
+          return {};
+        }
+        // 检测 world 按钮的缓存是否包含 personality 字段，不包含则清除
+        if (parsed.world && parsed.world.content && !/personality/.test(parsed.world.content)) {
           localStorage.removeItem(STORAGE_KEY);
           return {};
         }
@@ -148,17 +154,6 @@ const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
     const defaultContent = promptEntry.content || currentBtn.defaultContent;
 
     if (existing && existing.content && existing.content.trim()) {
-      // 对 character 按钮：检测缓存是否包含章节规划关键词
-      if (currentBtn.id === 'character') {
-        const hasChapterPlan = /第.*章/.test(existing.content);
-        if (!hasChapterPlan) {
-          return {
-            content: defaultContent,
-            versions: existing.versions || [],
-            nextId: existing.nextId || 1,
-          };
-        }
-      }
       return existing;
     }
 
@@ -237,9 +232,12 @@ const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
 
   // 当前按钮状态
   const currentState = getCurrentState();
-  // 当前按钮的约束值
+  // 当前按钮的约束值 - 直接订阅 prompts 对象，避免 getPrompt 的缓存问题
   const currentPanelId = BTN_TO_PANEL[currentBtn.id];
-  const currentConstraint = usePromptStore((s) => s.getPrompt(currentPanelId).constraint);
+  const currentConstraint = usePromptStore((s) => {
+    const saved = s.prompts[currentPanelId];
+    return saved?.constraint || '';
+  });
 
   /** 内容变更 - 同步到 usePromptStore */
   const handleContentChange = (val: string) => {
@@ -490,8 +488,11 @@ const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
                 lineHeight: 1.6, boxSizing: 'border-box',
               }}
             />
-            {/* 底部保存按钮 */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+            {/* 底部提示 + 保存按钮 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <span style={{ color: '#6a9fb5', fontSize: 11, fontWeight: 500, opacity: 0.7 }}>
+                💡 修改后点击「保存约束」方可生效
+              </span>
               <button
                 onClick={() => {
                   setConstraintInStore('setting', worldConstraintText);

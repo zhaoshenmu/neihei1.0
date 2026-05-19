@@ -18,6 +18,7 @@ interface CharacterItem {
   desire: string;
   flaw: string;
   arc: string;
+  personality: string;
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -98,7 +99,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   textarea: {
     width: '100%',
-    height: 180,
+    height: 130,
     borderRadius: 10,
     border: '1px solid #1e1e1e',
     background: 'rgba(0,0,0,0.3)',
@@ -114,7 +115,7 @@ const styles: Record<string, React.CSSProperties> = {
 };
 
 /** 稳定的空数组引用，防止 zustand 选择器每次返回新 [] 导致额外重渲染 */
-const STABLE_EMPTY_ARRAY: any[] = [];
+const STABLE_EMPTY_ARRAY: readonly unknown[] = [];
 
 export default function PageCharacter({ nodeId }: Props) {
   const charactersRaw = usePanelDataStore(
@@ -128,15 +129,17 @@ export default function PageCharacter({ nodeId }: Props) {
   // 构建统一的角色列表（兼容字符串、数组、对象等各种旧格式）
   const characterList: CharacterItem[] = useMemo(() => {
     if (Array.isArray(charactersRaw)) {
-      return charactersRaw.map((c: any) => {
+      return charactersRaw.map((c: unknown) => {
         if (typeof c === 'string') {
-          return { name: c, desire: '', flaw: '', arc: '' };
+          return { name: c, desire: '', flaw: '', arc: '', personality: '' };
         }
+        const obj = (c ?? {}) as Record<string, unknown>;
         return {
-          name: c?.name || '',
-          desire: c?.desire || '',
-          flaw: c?.flaw || '',
-          arc: c?.arc || '',
+          name: typeof obj.name === 'string' ? obj.name : '',
+          desire: typeof obj.desire === 'string' ? obj.desire : '',
+          flaw: typeof obj.flaw === 'string' ? obj.flaw : '',
+          arc: typeof obj.arc === 'string' ? obj.arc : '',
+          personality: typeof obj.personality === 'string' ? obj.personality : '',
         };
       });
     }
@@ -147,6 +150,7 @@ export default function PageCharacter({ nodeId }: Props) {
         desire: '',
         flaw: '',
         arc: '',
+        personality: '',
       }));
     }
 
@@ -164,7 +168,7 @@ export default function PageCharacter({ nodeId }: Props) {
   const setCharField = (field: keyof CharacterItem, value: string) => {
     if (!Array.isArray(charactersRaw)) return;
 
-    const updatedChars = charactersRaw.map((c: any, idx: number) => {
+    const updatedChars = charactersRaw.map((c: unknown, idx: number) => {
       if (idx !== activeCharIdx) return c;
       if (typeof c === 'string') {
         return {
@@ -172,13 +176,24 @@ export default function PageCharacter({ nodeId }: Props) {
           desire: field === 'desire' ? value : '',
           flaw: field === 'flaw' ? value : '',
           arc: field === 'arc' ? value : '',
+          personality: field === 'personality' ? value : '',
         };
       }
-      return { ...c, [field]: value };
+      const obj = (c ?? {}) as Record<string, unknown>;
+      return { ...obj, [field]: value };
     });
 
     updateNodeData(nodeId, 'characters', updatedChars);
   };
+
+  // 🔍 调试：打印 AI 返回的原始 characters 数据
+  if (process.env.NODE_ENV === 'development' && Array.isArray(charactersRaw) && charactersRaw.length > 0) {
+    const sample = charactersRaw[0];
+    if (typeof sample === 'object' && sample !== null) {
+      const hasPersonality = 'personality' in (sample as Record<string, unknown>);
+      console.log(`[PageCharacter] characters[0] 字段: ${Object.keys(sample as Record<string, unknown>).join(', ')}`, hasPersonality ? '✅ 有 personality' : '❌ 无 personality');
+    }
+  }
 
   if (characterList.length === 0) {
     return (
@@ -229,6 +244,12 @@ export default function PageCharacter({ nodeId }: Props) {
             desc="角色在故事中的成长与转变轨迹"
             value={getCharField('arc')}
             onChange={(v) => setCharField('arc', v)}
+          />
+          <CharacterBlock
+            title="性格"
+            desc="角色的性格特征与行为模式"
+            value={getCharField('personality')}
+            onChange={(v) => setCharField('personality', v)}
           />
         </div>
       )}

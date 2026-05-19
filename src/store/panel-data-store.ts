@@ -39,6 +39,39 @@ export const usePanelDataStore = create<PanelDataStore>()(
         }),
       getAllNodeIds: () => Object.keys(get().data),
     }),
-    { name: 'neihei-panel-data' }
+    {
+      name: 'neihei-panel-data',
+      version: 2,
+      migrate: (persistedState: unknown, version: number) => {
+        const state = persistedState as Record<string, unknown>;
+        if (version < 2 && state && typeof state === 'object') {
+          // 迁移到 v2：确保 characters 数组中每个角色对象都有 personality 字段
+          const data = (state.data ?? {}) as Record<string, Record<string, unknown>>;
+          for (const nodeId of Object.keys(data)) {
+            const chars = data[nodeId]?.characters;
+            if (Array.isArray(chars)) {
+              data[nodeId].characters = chars.map((c: unknown) => {
+                if (typeof c === 'string') {
+                  return { name: c, desire: '', flaw: '', arc: '', personality: '' };
+                }
+                if (typeof c === 'object' && c !== null) {
+                  const obj = c as Record<string, unknown>;
+                  return {
+                    ...obj,
+                    desire: typeof obj.desire === 'string' ? obj.desire : '',
+                    flaw: typeof obj.flaw === 'string' ? obj.flaw : '',
+                    arc: typeof obj.arc === 'string' ? obj.arc : '',
+                    personality: typeof obj.personality === 'string' ? obj.personality : '',
+                  };
+                }
+                return c;
+              });
+            }
+          }
+          return { data } as any;
+        }
+        return persistedState as any;
+      },
+    }
   )
 );

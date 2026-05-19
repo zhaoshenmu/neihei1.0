@@ -1,18 +1,24 @@
 /**
+ * PageSetting.tsx
+ *
  * 作品设定 - 面板第一页
  * 填写创意、叙事视角、主角性别/名字、风格选择（下拉菜单+自定义）、风格展开描述、世界规则、规划字数
  * 风格：#0d0d0d / #1e1e1e 暗色统一，紧凑排版
  * 连接到 usePanelDataStore，实现数据双向绑定
  *
- * 新增：
- *  - 风格选择改为点击弹出下拉：番茄爽文 / 起点风格 / 刺猬猫风格 + 自定义输入框
- *  - 风格选择下方显示「风格展开」文本框，根据风格预填典型描述，可编辑
- *  - 新增「世界规则」：现代世界 / 末日世界 / 未来世界 / 仙侠世界 + 自定义
- *  - 每章规划字数去掉下拉箭头
+ * ✓ 已阅读 docs/standards/02-代码规范.md
  */
 import React, { useState, useRef, useEffect } from 'react';
 import { usePanelDataStore } from '@/store/panel-data-store';
 import { pageStyles } from '@/theme/page-styles';
+import {
+  isBuiltInRule,
+  loadCustomRules,
+  addCustomRule,
+  deleteCustomRule,
+  getRuleConstraint,
+  type CustomWorldRule,
+} from '@/config/world-rule-constraints';
 
 interface Props {
   nodeId: string;
@@ -28,8 +34,8 @@ const STYLE_DETAILS_DEFAULT: Record<string, string> = {
   '刺猬猫风格': '轻松搞笑、玩梗频繁、二次元感强、系统流常见、吐槽风格、节奏轻松明快',
 };
 
-/** 世界规则预设 */
-const WORLD_RULE_PRESETS = ['现代世界', '末日世界', '未来世界', '仙侠世界'];
+/** 内置世界规则预设列表（按顺序显示） */
+const BUILT_IN_WORLD_RULES = ['现代世界', '末日世界', '未来世界', '仙侠世界'];
 
 export default function PageSetting({ nodeId }: Props) {
   const creativeIdea = usePanelDataStore((s) => (s.data[nodeId]?.creativeIdea as string) ?? '');
@@ -39,6 +45,8 @@ export default function PageSetting({ nodeId }: Props) {
   const style = usePanelDataStore((s) => (s.data[nodeId]?.style as string) ?? '');
   const styleDetails = usePanelDataStore((s) => (s.data[nodeId]?.styleDetails as string) ?? '');
   const worldRule = usePanelDataStore((s) => (s.data[nodeId]?.worldRule as string) ?? '');
+  /** 用户编辑后的世界规则约束文本，存入 store 以便 OutlinePanel 读取 */
+  const worldRuleConstraint = usePanelDataStore((s) => (s.data[nodeId]?.worldRuleConstraint as string) ?? '');
   const chapterWordCount = usePanelDataStore((s) => (s.data[nodeId]?.chapterWordCount as string) ?? '');
   const totalWordCount = usePanelDataStore((s) => (s.data[nodeId]?.totalWordCount as string) ?? '');
   const updateNodeData = usePanelDataStore((s) => s.updateNodeData);
@@ -51,9 +59,13 @@ export default function PageSetting({ nodeId }: Props) {
   const [styleCustomValue, setStyleCustomValue] = useState('');
   const styleRef = useRef<HTMLDivElement>(null);
 
-  // ========== 世界规则自定义 ==========
+  // ========== 世界规则自定义状态 ==========
   const [worldRuleCustomMode, setWorldRuleCustomMode] = useState(false);
-  const [worldRuleCustomValue, setWorldRuleCustomValue] = useState('');
+  const [worldRuleCustomName, setWorldRuleCustomName] = useState('');
+  const [worldRuleCustomConstraint, setWorldRuleCustomConstraint] = useState('');
+
+  // ========== 自定义规则列表（从 localStorage 加载） ==========
+  const [customRules, setCustomRules] = useState<CustomWorldRule[]>(() => loadCustomRules());
 
   // 点击外部关闭风格下拉
   useEffect(() => {
@@ -71,12 +83,9 @@ export default function PageSetting({ nodeId }: Props) {
   /** 选中风格 */
   const handleStyleSelect = (s: string) => {
     setVal('style', s);
-    // 如果该风格有默认展开描述且当前 styleDetails 为空，自动填充
     const defaultDetail = STYLE_DETAILS_DEFAULT[s];
     if (defaultDetail && !styleDetails) {
       setVal('styleDetails', defaultDetail);
-    } else if (defaultDetail) {
-      // 保持已存在的内容不变，但如果是旧的自定义内容，建议用户使用预设？这里不做覆盖
     }
     setStyleDropdownOpen(false);
     setStyleCustomMode(false);
@@ -92,25 +101,62 @@ export default function PageSetting({ nodeId }: Props) {
     }
   };
 
-  /** 选中世界规则 */
+  /** 选中世界规则 → 自动填充约束文本 */
   const handleWorldRuleSelect = (r: string) => {
     setVal('worldRule', r);
+    const constraint = getRuleConstraint(r, customRules);
+    if (constraint) {
+      setVal('worldRuleConstraint', constraint);
+    }
     setWorldRuleCustomMode(false);
   };
 
-  /** 自定义世界规则确认 */
-  const handleWorldRuleCustomConfirm = () => {
-    if (worldRuleCustomValue.trim()) {
-      setVal('worldRule', worldRuleCustomValue.trim());
-      setWorldRuleCustomMode(false);
-      setWorldRuleCustomValue('');
+  /** 修改约束文本 */
+  const handleConstraintChange = (val: string) => {
+    setVal('worldRuleConstraint', val);
+  };
+
+  /** 删除自定义规则 */
+  const handleDeleteCustomRule = (id: string, name: string) => {
+    // 如果当前正在使用这条规则，清空选择
+    if (worldRule === name) {
+      setVal('worldRule', '');
+      setVal('worldRuleConstraint', '');
     }
+    deleteCustomRule(id);
+    setCustomRules(loadCustomRules());
+  };
+
+  /** 新增自定义规则确认 */
+  const handleAddCustomRule = () => {
+    if (!worldRuleCustomName.trim() || !worldRuleCustomConstraint.trim()) return;
+    const newRule = addCustomRule(worldRuleCustomName, worldRuleCustomConstraint);
+    if (newRule) {
+      setCustomRules(loadCustomRules());
+      // 自动选中刚创建的规则
+      setVal('worldRule', newRule.name);
+      setVal('worldRuleConstraint', newRule.constraint);
+    }
+    setWorldRuleCustomMode(false);
+    setWorldRuleCustomName('');
+    setWorldRuleCustomConstraint('');
   };
 
   /** 当 styleDetails 改变时同步到 store */
   const handleStyleDetailsChange = (val: string) => {
     setVal('styleDetails', val);
   };
+
+  /** 获取当前规则是否内置 */
+  const currentIsBuiltIn = worldRule ? isBuiltInRule(worldRule) : false;
+  /** 获取当前显示约束文本 */
+  const constraintText = worldRuleConstraint;
+
+  // 合并显示用规则列表（内置 + 自定义）
+  const allDisplayRules = [
+    ...BUILT_IN_WORLD_RULES.map((name) => ({ name, isBuiltIn: true as const })),
+    ...customRules.map((r) => ({ name: r.name, isBuiltIn: false as const, id: r.id })),
+  ];
 
   return (
     <div>
@@ -303,56 +349,77 @@ export default function PageSetting({ nodeId }: Props) {
       {/* ===== 世界规则 ===== */}
       <SectionTitle title="世界规则" />
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-        {WORLD_RULE_PRESETS.map((r) => {
-          const isActive = worldRule === r;
-          return (
-            <div
-              key={r}
-              onClick={() => handleWorldRuleSelect(r)}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 16,
-                background: isActive ? 'rgba(201,168,76,0.15)' : 'rgba(255,255,255,0.04)',
-                border: isActive ? '1px solid rgba(201,168,76,0.4)' : '1px solid #2a2a2a',
-                color: isActive ? '#c9a84c' : '#b0b0b0',
-                fontSize: 12,
-                cursor: 'pointer',
-                transition: 'all 100ms',
-                userSelect: 'none',
-              }}
-              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.borderColor = '#444'; }}
-              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.borderColor = '#2a2a2a'; }}
-            >
-              {r}
-            </div>
-          );
+        {allDisplayRules.map((item) => {
+          const isActive = worldRule === item.name;
+          if (item.isBuiltIn) {
+            return (
+              <div
+                key={item.name}
+                onClick={() => handleWorldRuleSelect(item.name)}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 16,
+                  background: isActive ? 'rgba(201,168,76,0.15)' : 'rgba(255,255,255,0.04)',
+                  border: isActive ? '1px solid rgba(201,168,76,0.4)' : '1px solid #2a2a2a',
+                  color: isActive ? '#c9a84c' : '#b0b0b0',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  transition: 'all 100ms',
+                  userSelect: 'none',
+                }}
+                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.borderColor = '#444'; }}
+                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.borderColor = '#2a2a2a'; }}
+              >
+                {item.name}
+              </div>
+            );
+          } else {
+            // 自定义规则：显示名称 + × 删除按钮
+            return (
+              <div
+                key={item.id}
+                style={{
+                  padding: '6px 8px 6px 14px',
+                  borderRadius: 16,
+                  background: isActive ? 'rgba(201,168,76,0.15)' : 'rgba(255,255,255,0.04)',
+                  border: isActive ? '1px solid rgba(201,168,76,0.4)' : '1px solid #2a2a2a',
+                  color: isActive ? '#c9a84c' : '#b0b0b0',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  transition: 'all 100ms',
+                  userSelect: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+                onClick={() => handleWorldRuleSelect(item.name)}
+                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.borderColor = '#444'; }}
+                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.borderColor = '#2a2a2a'; }}
+              >
+                {item.name}
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteCustomRule(item.id!, item.name);
+                  }}
+                  style={{
+                    cursor: 'pointer',
+                    color: '#888',
+                    fontSize: 14,
+                    lineHeight: '12px',
+                    padding: '0 2px',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#e06060'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = '#888'; }}
+                  title="删除此自定义规则"
+                >
+                  ×
+                </span>
+              </div>
+            );
+          }
         })}
-        {/* 自定义标签：如果 worldRule 不在预设中且不为空，显示自定义标签 */}
-        {worldRule && !WORLD_RULE_PRESETS.includes(worldRule) && (
-          <div
-            style={{
-              padding: '6px 14px',
-              borderRadius: 16,
-              background: 'rgba(201,168,76,0.15)',
-              border: '1px solid rgba(201,168,76,0.4)',
-              color: '#c9a84c',
-              fontSize: 12,
-              userSelect: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            {worldRule}
-            <span
-              onClick={() => setVal('worldRule', '')}
-              style={{ cursor: 'pointer', color: '#888', fontSize: 14, lineHeight: '12px' }}
-              title="移除"
-            >
-              ×
-            </span>
-          </div>
-        )}
+        {/* + 自定义按钮 */}
         {!worldRuleCustomMode ? (
           <div
             onClick={() => setWorldRuleCustomMode(true)}
@@ -371,43 +438,124 @@ export default function PageSetting({ nodeId }: Props) {
             + 自定义
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <input
-              autoFocus
-              placeholder="输入世界规则..."
-              value={worldRuleCustomValue}
-              onChange={(e) => setWorldRuleCustomValue(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleWorldRuleCustomConfirm(); }}
+          <div style={{ width: '100%', marginTop: 4 }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+              <input
+                autoFocus
+                placeholder="世界规则名称（如：蒸汽朋克）"
+                value={worldRuleCustomName}
+                onChange={(e) => setWorldRuleCustomName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustomRule(); }}
+                style={{
+                  flex: 1,
+                  background: '#111',
+                  border: '1px solid #444',
+                  borderRadius: 4,
+                  padding: '5px 8px',
+                  color: '#e0e0e0',
+                  fontSize: 12,
+                  outline: 'none',
+                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                }}
+              />
+              <button
+                onClick={handleAddCustomRule}
+                style={{
+                  background: 'rgba(201,168,76,0.2)',
+                  border: '1px solid rgba(201,168,76,0.3)',
+                  borderRadius: 4,
+                  color: '#c9a84c',
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  cursor: 'pointer',
+                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                保存
+              </button>
+              <button
+                onClick={() => {
+                  setWorldRuleCustomMode(false);
+                  setWorldRuleCustomName('');
+                  setWorldRuleCustomConstraint('');
+                }}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #444',
+                  borderRadius: 4,
+                  color: '#808080',
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  cursor: 'pointer',
+                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                }}
+              >
+                取消
+              </button>
+            </div>
+            <textarea
+              placeholder="输入此世界规则的约束提示词，例如：核心冲突围绕能源争夺展开。科技水平停留在蒸汽动力时代，禁止出现……"
+              value={worldRuleCustomConstraint}
+              onChange={(e) => setWorldRuleCustomConstraint(e.target.value)}
               style={{
-                width: 140,
+                width: '100%',
+                minHeight: 60,
                 background: '#111',
                 border: '1px solid #444',
                 borderRadius: 4,
-                padding: '5px 8px',
-                color: '#e0e0e0',
+                padding: 8,
+                color: '#d4c080',
                 fontSize: 12,
+                resize: 'vertical',
                 outline: 'none',
                 fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                lineHeight: 1.5,
+                boxSizing: 'border-box',
               }}
             />
-            <button
-              onClick={handleWorldRuleCustomConfirm}
-              style={{
-                background: 'rgba(201,168,76,0.2)',
-                border: '1px solid rgba(201,168,76,0.3)',
-                borderRadius: 4,
-                color: '#c9a84c',
-                fontSize: 11,
-                padding: '4px 10px',
-                cursor: 'pointer',
-                fontFamily: "'Inter', 'Segoe UI', sans-serif",
-              }}
-            >
-              确定
-            </button>
           </div>
         )}
       </div>
+
+      {/* ===== 世界规则约束提示词（可编辑） ===== */}
+      {worldRule && (
+        <>
+          <SectionTitle
+            title="世界规则约束"
+            extra={
+              <span style={{ color: '#808080', fontSize: 10, marginLeft: 8 }}>
+                {currentIsBuiltIn
+                  ? '（内置约束，可根据需要修改）'
+                  : '（自定义约束，可根据需要修改）'}
+              </span>
+            }
+          />
+          <textarea
+            placeholder="选中世界规则后将自动填充约束提示词，可在此编辑..."
+            value={constraintText}
+            onChange={(e) => handleConstraintChange(e.target.value)}
+            style={{
+              width: '100%',
+              minHeight: 68,
+              background: 'rgba(201,168,76,0.04)',
+              border: '1px solid rgba(201,168,76,0.2)',
+              borderRadius: 8,
+              padding: 10,
+              color: '#d4c080',
+              fontSize: 12,
+              resize: 'vertical',
+              outline: 'none',
+              fontFamily: "'Inter', 'Segoe UI', sans-serif",
+              lineHeight: 1.6,
+              boxSizing: 'border-box',
+            }}
+          />
+          <div style={{ color: '#6a9fb5', fontSize: 10, marginTop: 4, opacity: 0.7 }}>
+            💡 此约束将自动附加到所有 AI 调用中，防止生成不合理的设定。
+          </div>
+        </>
+      )}
 
       {/* ===== 规划字数（去掉下拉箭头） ===== */}
       <SectionTitle title="规划字数" />

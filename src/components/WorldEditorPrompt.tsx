@@ -348,52 +348,59 @@ const WorldEditorPrompt: React.FC<WorldEditorPromptProps> = ({
             </div>
           </div>
 
-          {/* 底部右下角：历史版本 + 保存为新版本 */}
+          {/* 底部：提示 + 历史版本 + 保存为新版本 */}
           <div
             style={{
               padding: '10px 16px',
               borderTop: `1px solid ${theme.colors.inputBorder}`,
               display: 'flex',
-              justifyContent: 'flex-end',
+              justifyContent: 'space-between',
               alignItems: 'center',
-              gap: 20,
+              gap: 8,
               flexShrink: 0,
             }}
           >
-            <button
-              onClick={() => setViewMode('history')}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#808080',
-                fontSize: 12,
-                cursor: 'pointer',
-                fontFamily: theme.fontFamily.sans,
-                padding: '4px 0',
-                transition: 'color 150ms ease',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#b0b0b0'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = '#808080'; }}
-            >
-              历史版本
-            </button>
-            <button
-              onClick={handleSave}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#808080',
-                fontSize: 12,
-                cursor: 'pointer',
-                fontFamily: theme.fontFamily.sans,
-                padding: '4px 0',
-                transition: 'color 150ms ease',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#b0b0b0'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = '#808080'; }}
-            >
-              保存为新版本
-            </button>
+            {/* 左侧提示 */}
+            <span style={{ color: '#6a9fb5', fontSize: 11, fontWeight: 500, opacity: 0.7 }}>
+              💡 修改后需点击「保存为新版本」方可生效
+            </span>
+            {/* 右侧按钮组 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexShrink: 0 }}>
+              <button
+                onClick={() => setViewMode('history')}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#808080',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  fontFamily: theme.fontFamily.sans,
+                  padding: '4px 0',
+                  transition: 'color 150ms ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#b0b0b0'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = '#808080'; }}
+              >
+                历史版本
+              </button>
+              <button
+                onClick={handleSave}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#808080',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  fontFamily: theme.fontFamily.sans,
+                  padding: '4px 0',
+                  transition: 'color 150ms ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#b0b0b0'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = '#808080'; }}
+              >
+                保存为新版本
+              </button>
+            </div>
           </div>
         </>
       )}

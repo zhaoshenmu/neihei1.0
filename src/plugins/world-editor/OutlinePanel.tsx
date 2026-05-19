@@ -1,4 +1,6 @@
 /**
+ * OutlinePanel.tsx
+ *
  * Outline 悬浮面板
  * 双击大纲编辑器节点时弹出
  * 宽度固定 400px，高度默认 900px，可通过右下角手柄垂直调整
@@ -10,6 +12,8 @@
  * - 自动模式：所有页面无按钮
  * - 运行成功显示 ✅ 对号（1.5秒消失）
  * - 暴露 runFromOutside 供 App.tsx 触发流程
+ *
+ * ✓ 已阅读 docs/standards/02-代码规范.md
  */
 import { useState, useCallback, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { theme } from '@/theme/neihei-theme';
@@ -85,7 +89,19 @@ const OutlinePanel = forwardRef<{ runFromOutside: (startTab?: TabId) => Promise<
         const context = buildContext();
         let fullPrompt = renderPrompt(promptEntry.content, context);
 
-        // 追加约束条件（如果有）
+        // 1. 追加作品约束（全局约束，来自 setting 面板）
+        const settingEntry = getPrompt('setting');
+        if (settingEntry.constraint) {
+          fullPrompt += `\n\n=== 作品约束 ===\n${settingEntry.constraint}`;
+        }
+
+        // 2. 追加世界规则约束（来自作品设定面板选中的世界规则）
+        const worldRuleConstraint = context.worldRuleConstraint as string | undefined;
+        if (worldRuleConstraint && worldRuleConstraint.trim()) {
+          fullPrompt += `\n\n=== 世界规则约束 ===\n${worldRuleConstraint}`;
+        }
+
+        // 3. 追加当前面板的约束条件
         if (promptEntry.constraint) {
           fullPrompt += `\n\n=== 约束条件 ===\n${promptEntry.constraint}`;
         }

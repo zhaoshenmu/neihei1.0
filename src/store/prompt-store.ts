@@ -92,9 +92,9 @@ const DEFAULT_PROMPTS: Record<PromptPanelId, string> = {
 请基于以上世界观，生成主要人物设定。输出的JSON必须包含以下字段：
 {
   "characters": [
-    { "name": "角色名", "desire": "欲望", "flaw": "缺陷", "arc": "弧光" },
-    { "name": "角色名", "desire": "欲望", "flaw": "缺陷", "arc": "弧光" },
-    { "name": "角色名", "desire": "欲望", "flaw": "缺陷", "arc": "弧光" }
+    { "name": "角色名", "desire": "欲望", "flaw": "缺陷", "arc": "弧光", "personality": "性格" },
+    { "name": "角色名", "desire": "欲望", "flaw": "缺陷", "arc": "弧光", "personality": "性格" },
+    { "name": "角色名", "desire": "欲望", "flaw": "缺陷", "arc": "弧光", "personality": "性格" }
   ]
 }
 
@@ -285,11 +285,24 @@ export const usePromptStore = create<PromptStore>()(
       prompts: {} as Record<PromptPanelId, PromptEntry>,
 
       getPrompt: (panelId) => {
-        // 对于 plot 和 character 面板，强制使用最新默认提示词（包含章节规划要求）
-        if (panelId === 'plot' || panelId === 'character') {
+        const saved = get().prompts[panelId];
+        // 对于 character 面板：优先使用用户自定义的提示词，没有才回退默认
+        if (panelId === 'character') {
+          if (saved && saved.content) {
+            return saved;
+          }
           return getDefaultEntry(panelId);
         }
-        const saved = get().prompts[panelId];
+        // 对于 plot 面板：强制使用默认 content（一致性检查格式容易搞乱），
+        // 但保留用户自定义的 constraint
+        if (panelId === 'plot') {
+          const defaultEntry = getDefaultEntry(panelId);
+          return {
+            ...defaultEntry,
+            constraint: saved?.constraint || '',
+            updatedAt: saved?.updatedAt || 0,
+          };
+        }
         if (saved && saved.content) {
           return saved;
         }
@@ -342,11 +355,21 @@ export const usePromptStore = create<PromptStore>()(
     }),
     {
       name: 'neihei-prompt-store',
-      version: 4,
+      version: 5,
       migrate: (persistedState: unknown, version: number) => {
-        if (version < 4) {
-          // 迁移：旧版本没有 constraint 字段，全部重置
-          return { prompts: {} } as any;
+        const state = persistedState as Record<string, unknown>;
+        if (version < 5 && state && typeof state === 'object') {
+          // 迁移到 v5：world 面板提示词新增 personality 字段
+          // 不清除已有数据，只确保 world 面板的提示词包含 personality
+          const prompts = (state.prompts ?? {}) as Record<string, Record<string, unknown>>;
+          if (prompts.world) {
+            const content = prompts.world.content;
+            if (typeof content === 'string' && !content.includes('personality')) {
+              // 旧版 world 提示词没有 personality，删除让其使用默认值
+              delete prompts.world;
+            }
+          }
+          return { prompts } as any;
         }
         return persistedState as any;
       },

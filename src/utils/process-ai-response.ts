@@ -177,6 +177,26 @@ export function processAIDataForStore(
     fixConsistencyFields(parsedData);
   }
 
+  // 确保 characters 数组中每个角色对象都有 personality 字段（兜底）
+  if (Array.isArray(parsedData.characters)) {
+    parsedData.characters = parsedData.characters.map((c: unknown) => {
+      if (typeof c === 'string') {
+        return { name: c, desire: '', flaw: '', arc: '', personality: '' };
+      }
+      if (typeof c === 'object' && c !== null) {
+        const obj = c as Record<string, unknown>;
+        return {
+          name: typeof obj.name === 'string' ? obj.name : '',
+          desire: typeof obj.desire === 'string' ? obj.desire : '',
+          flaw: typeof obj.flaw === 'string' ? obj.flaw : '',
+          arc: typeof obj.arc === 'string' ? obj.arc : '',
+          personality: typeof obj.personality === 'string' ? obj.personality : '',
+        };
+      }
+      return { name: '', desire: '', flaw: '', arc: '', personality: '' };
+    });
+  }
+
   // 将数据写入 store
   for (const [key, value] of Object.entries(parsedData)) {
     if (key === 'characters' || key === 'plot_structure') {
