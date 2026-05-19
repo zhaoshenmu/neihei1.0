@@ -27,7 +27,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { theme } from '@/theme/neihei-theme';
 import { useBookshelfStore } from '@/store/bookshelf-store';
 import type { BookSnapshot } from '@/store/bookshelf-store';
-
+import { exportBookToFile, importBookFromFile, selectBookshelfFolder, hasBookshelfFolder, disconnectBookshelfFolder } from '@/services/file-service';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -276,6 +276,64 @@ export default function BookshelfPanel({ isOpen, onClose }: Props) {
     onClose();
   }, [selectedBookId, loadBook, onClose]);
 
+  // 导出选中书到文件
+  const handleExport = useCallback(async () => {
+    if (!selectedBookId) return;
+    const book = books.find((b) => b.id === selectedBookId);
+    if (!book) return;
+    try {
+      await exportBookToFile(book);
+    } catch (error) {
+      console.error('[BookshelfPanel] 导出失败:', error);
+    }
+  }, [selectedBookId, books]);
+
+  // 从文件导入到书架
+  const handleImport = useCallback(async () => {
+    try {
+      const book = await importBookFromFile();
+      if (!book) return; // 用户取消
+      // 检查是否已存在同名同时间的书
+      const exists = books.some((b) => b.id === book.id);
+      if (exists) {
+        console.warn('[BookshelfPanel] 该书已存在，跳过导入');
+        return;
+      }
+      // 直接注入导入的书到书架（原子操作，避免中间状态）
+      useBookshelfStore.setState((state) => ({
+        books: [...state.books, book],
+      }));
+      console.log(`[BookshelfPanel] 从文件导入: "${book.name}"`);
+    } catch (error) {
+      console.error('[BookshelfPanel] 导入失败:', error);
+    }
+  }, [books]);
+
+  // 本地文件夹同步状态
+  const [folderConnected, setFolderConnected] = useState(hasBookshelfFolder());
+
+  // 选择书库位置（本地文件夹）
+  const handleSelectFolder = useCallback(async () => {
+    const success = await selectBookshelfFolder();
+    if (success) {
+      setFolderConnected(true);
+      // 选择成功后，清空当前书架，只显示新文件夹里的书
+      const { initFromFolder } = useBookshelfStore.getState();
+      // 先清空书架（切换文件夹，旧文件夹的书不再显示）
+      useBookshelfStore.setState({ books: [], selectedBookId: null });
+      // 从新文件夹加载数据
+      await initFromFolder();
+    }
+  }, []);
+
+  // 断开书库
+  const handleDisconnectFolder = useCallback(() => {
+    disconnectBookshelfFolder();
+    setFolderConnected(false);
+    // 断开书库后清空书架，不再显示之前文件夹里的书
+    useBookshelfStore.setState({ books: [], selectedBookId: null });
+  }, []);
+
   if (!isOpen) return null;
 
   return (
@@ -283,15 +341,86 @@ export default function BookshelfPanel({ isOpen, onClose }: Props) {
       <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
         {/* 标题栏 */}
         <div style={headerStyle}>
-          <span style={titleStyle}>📚 书架</span>
-          <button
-            onClick={onClose}
-            style={closeBtnStyle}
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#e0e0e0'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = '#808080'; }}
-          >
-            ✕
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={titleStyle}>📚 书架</span>
+            {/* 本地文件夹同步状态指示 */}
+            {folderConnected ? (
+              <span style={{ color: '#4a8a4a', fontSize: 10, fontFamily: theme.fontFamily.sans }}>
+                ● 已同步到本地
+              </span>
+            ) : (
+              <span style={{ color: '#666', fontSize: 10, fontFamily: theme.fontFamily.sans }}>
+                ○ 仅浏览器保存
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {folderConnected ? (
+              <button
+                onClick={handleDisconnectFolder}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: 4,
+                  color: '#808080',
+                  padding: '4px 10px',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                  fontFamily: theme.fontFamily.sans,
+                  transition: 'all 150ms ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#e0e0e0'; e.currentTarget.style.borderColor = '#5a5a5a'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = '#808080'; e.currentTarget.style.borderColor = '#3a3a3a'; }}
+              >
+                🔗 断开书库
+              </button>
+            ) : (
+              <button
+                onClick={handleSelectFolder}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #2a4a2a',
+                  borderRadius: 4,
+                  color: '#6aaa6a',
+                  padding: '4px 10px',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                  fontFamily: theme.fontFamily.sans,
+                  transition: 'all 150ms ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#8aca8a'; e.currentTarget.style.borderColor = '#4a6a4a'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = '#6aaa6a'; e.currentTarget.style.borderColor = '#2a4a2a'; }}
+              >
+                📁 书库位置
+              </button>
+            )}
+            <button
+              onClick={handleImport}
+              style={{
+                background: 'transparent',
+                border: '1px solid #2a2a2a',
+                borderRadius: 4,
+                color: '#b0b0b0',
+                padding: '4px 10px',
+                fontSize: 11,
+                cursor: 'pointer',
+                fontFamily: theme.fontFamily.sans,
+                transition: 'all 150ms ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#e0e0e0'; e.currentTarget.style.borderColor = '#4a4a4a'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#b0b0b0'; e.currentTarget.style.borderColor = '#2a2a2a'; }}
+            >
+              📂 从文件导入
+            </button>
+            <button
+              onClick={onClose}
+              style={closeBtnStyle}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#e0e0e0'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#808080'; }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* 上层 - 书架区域 300px */}
@@ -378,6 +507,24 @@ export default function BookshelfPanel({ isOpen, onClose }: Props) {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={handleExport}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #2a2a2a',
+                    borderRadius: 6,
+                    color: '#b0b0b0',
+                    padding: '6px 12px',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    fontFamily: theme.fontFamily.sans,
+                    transition: 'all 150ms ease',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#e0e0e0'; e.currentTarget.style.borderColor = '#4a4a4a'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = '#b0b0b0'; e.currentTarget.style.borderColor = '#2a2a2a'; }}
+                >
+                  💾 导出到文件
+                </button>
                 <button
                   onClick={handleRestore}
                   style={{

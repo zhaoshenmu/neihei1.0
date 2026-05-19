@@ -12,7 +12,7 @@
  * 设计原则：
  * - 快照是纯数据，不依赖 React 组件
  * - 恢复时从各 store 同步读取最新状态
- * - 持久化到 localStorage
+ * - 持久化到 localStorage + 自动同步到本地文件夹（如果已配置）
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -22,6 +22,7 @@ import { usePanelDataStore } from './panel-data-store';
 import { useWorldEditorFlowStore } from './world-editor-flow-store';
 import type { EditorMode, SignalStatus } from '@/types';
 import type { WorldEditorTabId as TabId } from '@/types';
+import { syncBooksToFolder, loadBooksFromFolder, hasBookshelfFolder } from '@/services/file-service';
 
 /** 一本书的快照数据 */
 export interface BookSnapshot {
@@ -67,6 +68,22 @@ interface BookshelfState {
   selectBook: (id: string | null) => void;
   /** 获取选中书的详情 */
   getSelectedBook: () => BookSnapshot | null;
+  /** 从本地文件夹初始化书架数据（启动时调用） */
+  initFromFolder: () => Promise<void>;
+}
+
+/**
+ * 辅助函数：在数据变更后自动同步到本地文件夹
+ * 仅在用户已配置本地文件夹时执行
+ */
+async function syncAfterSet(getState: () => BookshelfState) {
+  if (!hasBookshelfFolder()) return;
+  const { books } = getState();
+  try {
+    await syncBooksToFolder(books);
+  } catch (error) {
+    console.warn('[Bookshelf] 同步到本地文件夹失败:', error);
+  }
 }
 
 export const useBookshelfStore = create<BookshelfState>()(
@@ -103,6 +120,9 @@ export const useBookshelfStore = create<BookshelfState>()(
         }));
 
         console.log(`[Bookshelf] 保存快照: "${name}" (${newBook.canvas.nodes.length} 个节点, ${newBook.canvas.edges.length} 条连线)`);
+
+        // 🔄 自动同步到本地文件夹（如果已配置）
+        syncAfterSet(get);
       },
 
       loadBook: (id: string) => {
@@ -147,6 +167,9 @@ export const useBookshelfStore = create<BookshelfState>()(
           books: state.books.filter((b) => b.id !== id),
           selectedBookId: state.selectedBookId === id ? null : state.selectedBookId,
         }));
+
+        // 🔄 自动同步到本地文件夹（如果已配置）
+        syncAfterSet(get);
       },
 
       renameBook: (id: string, newName: string) => {
@@ -155,6 +178,9 @@ export const useBookshelfStore = create<BookshelfState>()(
             b.id === id ? { ...b, name: newName } : b
           ),
         }));
+
+        // 🔄 自动同步到本地文件夹（如果已配置）
+        syncAfterSet(get);
       },
 
       updateBook: (id: string) => {
@@ -192,6 +218,9 @@ export const useBookshelfStore = create<BookshelfState>()(
         }));
 
         console.log(`[Bookshelf] 更新快照: "${book.name}" (${canvasState.nodes.length} 个节点, ${canvasState.edges.length} 条连线)`);
+
+        // 🔄 自动同步到本地文件夹（如果已配置）
+        syncAfterSet(get);
       },
 
       selectBook: (id: string | null) => {
@@ -202,6 +231,19 @@ export const useBookshelfStore = create<BookshelfState>()(
         const { books, selectedBookId } = get();
         if (!selectedBookId) return null;
         return books.find((b) => b.id === selectedBookId) || null;
+      },
+
+      initFromFolder: async () => {
+        if (!hasBookshelfFolder()) return;
+        try {
+          const folderBooks = await loadBooksFromFolder();
+          if (folderBooks && folderBooks.length > 0) {
+            set({ books: folderBooks });
+            console.log(`[Bookshelf] 从本地文件夹加载: ${folderBooks.length} 本书`);
+          }
+        } catch (error) {
+          console.warn('[Bookshelf] 从本地文件夹初始化失败:', error);
+        }
       },
     }),
     {

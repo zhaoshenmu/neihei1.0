@@ -28,6 +28,10 @@ export interface PluginManifest {
   icon?: string;
   /** 节点固定ID（如 "001"），全局唯一，绑定节点类型，永不改变 */
   fixedId: string;
+  /** 是否在节点库和菜单中隐藏（用于面板类插件） */
+  hidden?: boolean;
+  /** 面板插槽位置（仅对 hidden 面板类插件有效） */
+  panelSlot?: PanelSlot;
   inputs?: PortDefinition[];
   outputs?: PortDefinition[];
   /** 节点计算代码（可选） 
@@ -36,6 +40,12 @@ export interface PluginManifest {
   execute?: string;
   defaultData?: Record<string, unknown>;
 }
+
+/**
+ * 面板插槽位置
+ * 面板类插件通过此声明在界面上的渲染位置
+ */
+export type PanelSlot = 'floating' | 'sidebar-bottom' | 'toolbar';
 
 /**
  * 插件节点运行时接口
@@ -47,6 +57,28 @@ export interface PluginNodeDefinition {
   manifest: PluginManifest;
   component: React.ComponentType<NodeProps>;
   panel?: React.ComponentType<{ nodeId: string }>;
+}
+
+/**
+ * 面板插件定义
+ * 面板类插件（hidden: true）的运行时接口
+ */
+export interface PluginPanelDefinition {
+  manifest: PluginManifest;
+  /** 面板渲染组件，自己管理开关状态和 UI */
+  PanelComponent: React.ComponentType;
+}
+
+/**
+ * 面板注册条目
+ */
+export interface PluginPanelEntry {
+  type: string;
+  manifest: PluginManifest;
+  PanelComponent: React.ComponentType;
+  slot: PanelSlot;
+  enabled: boolean;
+  loadedAt: number;
 }
 
 /**

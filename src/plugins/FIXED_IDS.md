@@ -1,31 +1,52 @@
-# 插件 fixedId 注册表
+# 固定ID（fixedId）管理
 
-> **重要：新增插件前必须在此表注册 fixedId，确保全局唯一，不可重复！**
+> 最后更新: 2026-05-19
 
-## 已占用的 fixedId
+## 已分配 ID
 
-| fixedId | 插件类型 | 目录 | 说明 |
+| fixedId | 插件类型 | 标签 | 类型 |
 |---------|---------|------|------|
-| 001 | memory | `src/plugins/zhang-gu-si/` | 掌故司（记忆内核节点，管理上下文记忆与历史对话存储） |
-| 003 | world-editor | `src/plugins/world-editor/` | 世界编辑器（大纲编辑器，世界观/主线/人物/卷大纲） |
+| 001 | world-editor | 世界编辑器 | 节点 |
+| 002 | character-node | 角色节点 | 节点 |
+| 003 | plot-node | 剧情节点 | 节点 |
+| 004 | smart-console | 智能控制台 | **面板(floating)** |
+| 005 | zhang-gu-si | 张古斯 | 节点 |
 
-## ID 分配规则
+## 注册规则
 
-| ID 范围 | 用途 | 说明 |
-|---------|------|------|
-| 001-049 | **核心插件** | 项目内置的官方插件，由项目维护者分配 |
-| 050-999 | **自定义/第三方插件** | 用户自行开发的实验性插件 |
-| 000 | **保留** | 暂不使用 |
+1. **每个插件必须在 manifest.json 中定义 fixedId**
+2. **fixedId 必须唯一**，不能与其他插件重复
+3. **类型前缀**：节点插件用 001-099，面板插件用 100-199（当前面板使用 004-099 短期兼容）
+4. **已删除插件的 ID 不可复用**（防止数据冲突）
+5. 如需添加新插件，请联系 maintainer 分配新 ID
 
-## 新增插件步骤
+## 面板插件规范
 
-1. 在本表查看下一个可用 ID
-2. 在 `manifest.json` 中填写 `fixedId`
-3. 在本表新增一行记录
-4. 确保不要跳号（除非有特殊理由）
+面板插件（`hidden: true`）需要满足以下文件结构：
 
-## ID 冲突预防
+```
+plugins/your-panel/
+├── manifest.json    # 必须：hidden: true + panelSlot: "floating"
+├── index.tsx        # 必须：空占位组件（默认导出 React.FC）
+└── Panel.tsx        # 必须：面板实际组件，默认导出 React.FC
+```
 
-- 所有 `manifest.json` 中的 `fixedId` 必须为**三位数字字符串**（如 `"001"`）
-- 不可与已注册的 ID 重复
-- 如果合并代码时发现冲突，后合并者需重新分配 ID
+**manifest.json 示例**：
+```json
+{
+  "type": "my-panel",
+  "label": "我的面板",
+  "hidden": true,
+  "panelSlot": "floating",
+  "fixedId": "0XX",
+  "inputs": [],
+  "outputs": [],
+  "defaultData": {}
+}
+```
+
+**特点**：
+- 面板组件完全自包含，自己管理开关状态和 UI
+- 通过 `Panel.tsx` 自动注册到 `pluginRegistry` 的 floating 插槽
+- 从 `App.tsx` 移除后硬编码引用不会导致编译错误
+- 删除插件目录后，系统自动跳过，不会报错

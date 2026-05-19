@@ -16,6 +16,13 @@ export interface AiResponse {
   apiId?: string; // 实际使用的 API ID
 }
 
+/** AI 流式回调 */
+export interface AiStreamCallbacks {
+  onChunk: (text: string) => void;     // 每收到一段文本就调用
+  onDone: (fullText: string) => void;  // 流结束
+  onError: (err: string) => void;      // 出错
+}
+
 /** ApiId 到 api-settings-store key 的映射 */
 const API_ID_TO_KEY: Record<ApiId, keyof import('@/store/api-settings-store').ApiSettings> = {
   'general-api': 'generalApi',
@@ -92,7 +99,7 @@ export async function callAi(
     const body: Record<string, unknown> = {
       messages,
       temperature: 0.7,
-      max_tokens: 2048,
+      max_tokens: 8192,
       stream: false,
     };
     if (config.model) {
@@ -127,5 +134,110 @@ export async function callAi(
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     return { success: false, content: '', error: `AI 调用异常: ${errorMsg}`, apiId: 'unknown' };
+  }
+}
+
+/**
+ * 调用 AI 大模型（流式）
+ * 逐块接收文本，通过 callbacks 实时回调
+ *
+ * @param messages 消息列表
+ * @param callbacks 回调对象：onChunk(增量文本) / onDone(完整文本) / onError(错误信息)
+ */
+export async function callAiStream(
+  messages: { role: string; content: string }[],
+  callbacks: AiStreamCallbacks
+): Promise<void> {
+  const config = await getActiveApiConfig();
+
+  if (!config.url) {
+    callbacks.onError('API URL 未配置');
+    return;
+  }
+  if (!config.key && config.apiId !== 'local-api') {
+    callbacks.onError('API Key 未配置');
+    return;
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (config.key) {
+    headers['Authorization'] = `Bearer ${config.key}`;
+  }
+
+  const body: Record<string, unknown> = {
+    messages,
+    temperature: 0.7,
+    max_tokens: 8192,
+    stream: true,
+  };
+  if (config.model) {
+    body.model = config.model;
+  }
+
+  const apiUrl = config.apiId === 'local-api'
+    ? `/api/lmstudio/v1/chat/completions`
+    : `${config.url}/v1/chat/completions`;
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '未知错误');
+      callbacks.onError(`API 请求失败 (${response.status}): ${errorText}`);
+      return;
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      callbacks.onError('响应体不可读（无 ReadableStream）');
+      return;
+    }
+
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      // 解码收到的字节块
+      buffer += decoder.decode(value, { stream: true });
+
+      // 按行分割（SSE 格式：data: {...}\n\n）
+      const lines = buffer.split('\n');
+      // 最后一行可能不完整，保留到下次
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data:')) continue;
+
+        const data = trimmed.slice(5).trim();
+        if (data === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed?.choices?.[0]?.delta?.content;
+          if (delta) {
+            fullText += delta;
+            callbacks.onChunk(delta);
+          }
+        } catch {
+          // 忽略解析异常行（可能是非 JSON 标记）
+        }
+      }
+    }
+
+    callbacks.onDone(fullText);
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    callbacks.onError(`AI 流式调用异常: ${errorMsg}`);
   }
 }

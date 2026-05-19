@@ -88,3 +88,9 @@ export const PORT_COLORS = {
 
 /** 插件拖拽 MIME 类型 */
 export const PLUGIN_DRAG_MIME_TYPE = 'application/plugin-type';
+
+/** 世界编辑器 - Outline 面板尺寸 */
+export const PANEL_WIDTH = 400;
+export const PANEL_DEFAULT_HEIGHT = 900;
+export const PANEL_MIN_HEIGHT = 400;
+export const PANEL_MAX_HEIGHT = 1200;

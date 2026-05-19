@@ -1,0 +1,13 @@
+{
+  "type": "smart-console",
+  "label": "智能控制台",
+  "category": "工具",
+  "icon": "🎛️",
+  "fixedId": "004",
+  "description": "节点调试工具 + 智能文档导入补全",
+  "hidden": true,
+  "panelSlot": "floating",
+  "inputs": [],
+  "outputs": [],
+  "defaultData": {}
+}

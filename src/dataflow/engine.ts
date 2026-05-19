@@ -14,11 +14,23 @@ const THROTTLE_MS = 800;
 /** 各源节点上次传播时间 */
 const lastPropagation: Record<string, number> = {};
 
+/** 互斥锁：防止引擎在传播过程中再次被触发 → 无限循环 */
+let isPropagating = false;
+
+/** 记录每个节点上次传播时的 text 内容，text 未变化则跳过传播 */
+const lastPropagatedText: Record<string, string> = {};
+
 /**
  * 核心传播函数
  * 当某个节点的数据变化时调用此函数
  */
 export async function propagateFromNode(sourceNodeId: string) {
+  // 互斥锁检查：如果正在传播中，跳过此次触发
+  if (isPropagating) {
+    console.log('[数据流引擎] 正在传播中，跳过触发');
+    return;
+  }
+
   const { nodes, edges } = useCanvasStore.getState();
 
   // 找到源节点
@@ -29,6 +41,12 @@ export async function propagateFromNode(sourceNodeId: string) {
   const text = sourceNode.data?.text;
   if (!text || typeof text !== 'string' || text.trim().length === 0) return;
 
+  // 检查 text 内容是否发生变化（防止 dataVersion 递增但 text 没变的循环触发）
+  if (lastPropagatedText[sourceNodeId] === text) {
+    return;
+  }
+  lastPropagatedText[sourceNodeId] = text;
+
   // 节流检查
   const now = Date.now();
   const last = lastPropagation[sourceNodeId] || 0;
@@ -38,16 +56,24 @@ export async function propagateFromNode(sourceNodeId: string) {
   // 找到从该节点出发的所有边
   const outEdges = edges.filter((e) => e.source === sourceNodeId);
 
-  // 对每条边的目标节点传播数据
-  for (const edge of outEdges) {
-    const targetNode = nodes.find((n) => n.id === edge.target);
-    if (!targetNode) continue;
+  // 加锁：开始传播
+  isPropagating = true;
 
-    await executeAiNode({
-      sourceNodeId,
-      targetNodeId: targetNode.id,
-      logTag: '数据流',
-    });
+  try {
+    // 对每条边的目标节点传播数据
+    for (const edge of outEdges) {
+      const targetNode = nodes.find((n) => n.id === edge.target);
+      if (!targetNode) continue;
+
+      await executeAiNode({
+        sourceNodeId,
+        targetNodeId: targetNode.id,
+        logTag: '数据流',
+      });
+    }
+  } finally {
+    // 解锁
+    isPropagating = false;
   }
 }
 

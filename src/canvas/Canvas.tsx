@@ -32,7 +32,7 @@ import { useSettingsStore } from '@/store/settings-store';
 import { handleDropEvent, handleKeyDelete } from './Canvas.handlers';
 import ContextMenu from './ContextMenu';
 import QuickConnectMenu from './QuickConnectMenu';
-import { PANEL_WIDTH, PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT } from '@/plugins/world-editor/types';
+import { PANEL_WIDTH, PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT } from '@/constants';
 
 import { useFloatingPanels } from './useFloatingPanels';
 import { useCanvasContextMenu } from './useCanvasContextMenu';
@@ -439,6 +439,7 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
         fitView={false}
         style={{ background: theme.colors.canvasBg }}
         colorMode="dark"
+        proOptions={{ hideAttribution: true }}
       >
         <Background
           variant={BackgroundVariant.Dots}

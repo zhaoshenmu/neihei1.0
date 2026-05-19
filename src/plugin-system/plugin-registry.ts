@@ -4,16 +4,24 @@
  * 
  * 每个插件的固定ID（fixedId）写死在 manifest.json 中（如 "001"、"002"）
  * 同类型所有节点实例共享同一个 fixedId
+ * 
+ * 支持两种插件类型：
+ * 1. 节点插件（hidden: false）— 注册为画布节点组件
+ * 2. 面板插件（hidden: true） — 注册为面板组件，通过插槽渲染
  */
 import type { 
   PluginNodeDefinition, 
   PluginRegistryEntry, 
+  PluginPanelEntry,
   PluginLoadResult,
   PluginManifest,
+  PanelSlot,
 } from './plugin-types';
 
 class PluginRegistry {
   private plugins: Map<string, PluginRegistryEntry> = new Map();
+  /** 面板插件注册表 key = 插件类型 */
+  private panels: Map<string, PluginPanelEntry> = new Map();
   private static instance: PluginRegistry;
 
   private constructor() {}
@@ -82,6 +90,84 @@ class PluginRegistry {
   }
 
   /**
+   * 注册面板插件
+   * 面板类插件（hidden: true）通过此方法注册
+   */
+  registerPanel(
+    type: string,
+    manifest: PluginManifest,
+    PanelComponent: React.ComponentType,
+    slot: PanelSlot = 'floating'
+  ): boolean {
+    if (!type || !PanelComponent) {
+      console.warn(`[Registry] 面板注册失败: 缺少 type 或 PanelComponent`);
+      return false;
+    }
+
+    if (this.panels.has(type)) {
+      // 已存在则更新
+      const existing = this.panels.get(type)!;
+      existing.PanelComponent = PanelComponent;
+      existing.slot = slot;
+      existing.manifest = manifest;
+      existing.loadedAt = Date.now();
+      console.log(`[Registry] 更新面板 "${manifest.label}" → slot: ${slot}`);
+      return true;
+    }
+
+    this.panels.set(type, {
+      type,
+      manifest,
+      PanelComponent,
+      slot,
+      enabled: true,
+      loadedAt: Date.now(),
+    });
+
+    console.log(`[Registry] 注册面板 "${manifest.label}" → slot: ${slot}`);
+    return true;
+  }
+
+  /**
+   * 获取指定插槽的所有面板组件
+   */
+  getPanelsBySlot(slot: PanelSlot): PluginPanelEntry[] {
+    return Array.from(this.panels.values())
+      .filter(entry => entry.slot === slot && entry.enabled);
+  }
+
+  /**
+   * 获取某个面板组件
+   */
+  getPanelComponent(type: string): React.ComponentType | undefined {
+    return this.panels.get(type)?.PanelComponent;
+  }
+
+  /**
+   * 检查面板是否已注册
+   */
+  hasPanel(type: string): boolean {
+    return this.panels.has(type);
+  }
+
+  /**
+   * 启用/禁用某个面板
+   */
+  setPanelEnabled(type: string, enabled: boolean): boolean {
+    const entry = this.panels.get(type);
+    if (!entry) return false;
+    entry.enabled = enabled;
+    return true;
+  }
+
+  /**
+   * 获取所有已注册的面板
+   */
+  getAllPanels(): PluginPanelEntry[] {
+    return Array.from(this.panels.values());
+  }
+
+  /**
    * 获取插件类型的固定ID（从 manifest 读取）
    */
   getFixedId(type: string): string | undefined {
@@ -112,7 +198,7 @@ class PluginRegistry {
   /**
    * 检查插件是否有 Panel 组件
    */
-  hasPanel(type: string): boolean {
+  hasNodePanel(type: string): boolean {
     const entry = this.plugins.get(type);
     return !!entry?.panel;
   }
@@ -158,7 +244,7 @@ class PluginRegistry {
    */
   setEnabled(type: string, enabled: boolean): boolean {
     const entry = this.plugins.get(type);
-    if (!entry) {return false;}
+    if (!entry) return false;
     entry.enabled = enabled;
     return true;
   }
@@ -182,6 +268,7 @@ class PluginRegistry {
    */
   clear(): void {
     this.plugins.clear();
+    this.panels.clear();
   }
 }
 

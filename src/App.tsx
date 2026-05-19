@@ -34,6 +34,8 @@ import { useUndoStore } from '@/store/undo-store';
 import { initDataflowEngine, destroyDataflowEngine } from '@/dataflow/engine';
 import { useRunHandler } from '@/hooks/useRunHandler';
 import { useWorldEditorFlowStore } from '@/store/world-editor-flow-store';
+import { useBookshelfStore } from '@/store/bookshelf-store';
+import { pluginRegistry } from '@/plugin-system/plugin-registry';
 
 const App: React.FC = () => {
   const [pluginLoaded, setPluginLoaded] = useState(false);
@@ -113,6 +115,9 @@ const App: React.FC = () => {
     });
     console.log(`[NeiHei] 插件加载完成: ${successCount}/${results.length}`);
 
+    // 🔄 启动时从本地文件夹加载书架数据（如果已配置）
+    useBookshelfStore.getState().initFromFolder();
+
     return () => {
       if (consoleCaptureRef.current) {
         consoleCaptureRef.current();
@@ -183,8 +188,29 @@ const App: React.FC = () => {
 
       {/* 悬浮日志面板 */}
       <LogPanel />
+
+      {/* ── 浮动面板插槽：由插件系统自动注册的面板组件 ── */}
+      <FloatingPanelSlot />
     </div>
   );
 };
+
+/**
+ * 浮动面板插槽组件
+ * 自动渲染所有注册到 'floating' 插槽的面板插件
+ * 不使用 useMemo 缓存，因为插件注册在 useEffect 中完成（首次渲染之后）
+ * 每次重渲染实时查询注册表，确保插件加载后面板正确显示
+ */
+function FloatingPanelSlot() {
+  const panels = pluginRegistry.getPanelsBySlot('floating');
+
+  return (
+    <>
+      {panels.map((entry) => (
+        <entry.PanelComponent key={entry.type} />
+      ))}
+    </>
+  );
+}
 
 export default App;

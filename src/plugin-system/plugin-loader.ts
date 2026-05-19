@@ -9,7 +9,7 @@
  * 3. 匹配文件夹名，将 manifest 和组件组合注册
  */
 import { pluginRegistry } from './plugin-registry';
-import type { PluginManifest, PluginLoadResult, PortDefinition } from './plugin-types';
+import type { PluginManifest, PluginLoadResult, PortDefinition, PanelSlot } from './plugin-types';
 
 /**
  * 简化端口定义（manifest.json 中使用）
@@ -156,9 +156,30 @@ export function loadAllPlugins(): PluginLoadResult[] {
         icon: manifestData.icon as string | undefined,
         description: manifestData.description as string | undefined,
         fixedId: manifestData.fixedId as string, // 必须存在，enum校验器中检查
+        hidden: manifestData.hidden as boolean | undefined,
         inputs: toPortDefs(manifestData.inputs as SimplePortDef[] | undefined, 'input'),
         outputs: toPortDefs(manifestData.outputs as SimplePortDef[] | undefined, 'output'),
       };
+
+      // 🔒 隐藏插件：不注册到节点系统，改为注册到面板系统（如面板类插件）
+      if (manifest.hidden) {
+        // 查找对应的 Panel 组件
+        const panelPath = panelPaths.find(p => getFolderName(p) === folderName);
+        const rawPanel = panelPath
+          ? (panelModules[panelPath] as unknown)
+          : undefined;
+
+        if (rawPanel && typeof rawPanel === 'function') {
+          const slot: PanelSlot = (manifest as any).panelSlot || 'floating';
+          pluginRegistry.registerPanel(manifest.type, manifest, rawPanel as React.ComponentType, slot);
+          console.log(`  🔒 [${manifest.type}] ${manifest.label} 已注册为面板插件 → slot: ${slot}`);
+        } else {
+          console.log(`  🔒 [${manifest.type}] ${manifest.label} 为隐藏插件，无面板组件`);
+        }
+
+        results.push({ success: true, type: manifest.type });
+        continue;
+      }
 
       // 查找对应的组件
       const componentPath = componentPaths.find(p => getFolderName(p) === folderName);

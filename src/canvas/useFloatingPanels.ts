@@ -8,7 +8,7 @@ import { useState, useCallback } from 'react';
 import { type Node } from '@xyflow/react';
 import { pluginRegistry } from '@/plugin-system/plugin-registry';
 import { useStickyPanelStore } from '@/store/sticky-panel-store';
-import { PANEL_WIDTH, PANEL_DEFAULT_HEIGHT } from '@/plugins/world-editor/types';
+import { PANEL_WIDTH, PANEL_DEFAULT_HEIGHT } from '@/constants';
 
 /** 每个弹出浮窗的状态 */
 export interface FloatingPanel {

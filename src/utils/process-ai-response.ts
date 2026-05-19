@@ -188,25 +188,105 @@ export function processAIDataForStore(
 }
 
 /**
+ * 尝试修复不标准的 JSON 字符串
+ * 处理常见的 AI 输出 JSON 格式问题：trailing comma、单引号、多余注释等
+ */
+function repairJSON(raw: string): string {
+  let str = raw.trim();
+
+  // 1. 去除可能的 md 代码块标识
+  const codeBlockMatch = str.match(/^```(?:json)?\s*([\s\S]*?)```\s*$/);
+  if (codeBlockMatch) {
+    str = codeBlockMatch[1].trim();
+  }
+
+  // 2. 尝试提取第一个完整的 JSON 对象 { ... }
+  const firstBrace = str.indexOf('{');
+  if (firstBrace < 0) throw new Error('未找到 JSON 对象起始符号');
+  const lastBrace = str.lastIndexOf('}');
+  if (lastBrace < firstBrace) throw new Error('未找到 JSON 对象结束符号');
+  str = str.slice(firstBrace, lastBrace + 1);
+
+  // 3. 去除注释（// style 和 /* */ style）
+  str = str.replace(/\/\/.*$/gm, '');
+  str = str.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // 4. 去除属性名周围不必要的引号变体（单引号 → 双引号）
+  //    匹配 key: value 中 key 未加引号或为单引号的情况
+  str = str.replace(/(['"])?([a-zA-Z_$][a-zA-Z0-9_$]*)(['"])?\s*:/g, (match, q1, key, q2) => {
+    // 如果已经用双引号包好了，保持不变
+    if (q1 === '"' && q2 === '"') return match;
+    return `"${key}":`;
+  });
+
+  // 5. 去除 trailing commas: 在 ,] 或 ,} 之前删除逗号
+  //    分两步：先处理 ,} → }，再处理 ,] → ]
+  str = str.replace(/,(\s*[}\]])/g, '$1');
+
+  // 6. 去除多余的逗号（如空数组或对象中的连续逗号）
+  str = str.replace(/,\s*,/g, ',');
+
+  // 7. 尝试修复字符串值中的未转义引号（常见 AI 错误）
+  //    这个比较难完美处理，先试一下简单的
+
+  return str;
+}
+
+/**
  * 解析 AI 响应 JSON
- * 优先 JSON.parse，失败则尝试从响应中提取 JSON 对象
+ * 优先 JSON.parse，失败则尝试修复格式后再次解析
  */
 export function parseAIResponse(responseContent: string): Record<string, unknown> {
-  // 如果包含 markdown 代码块标记（```json 或 ```），先去掉
   let cleaned = responseContent.trim();
+
+  // 去掉 markdown 代码块标记（```json 或 ```）
   const codeBlockMatch = cleaned.match(/^```(?:json)?\s*([\s\S]*?)```\s*$/);
   if (codeBlockMatch) {
     cleaned = codeBlockMatch[1].trim();
   }
 
+  // 第一轮：直接解析
   try {
     return JSON.parse(cleaned) as Record<string, unknown>;
   } catch {
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    // 直接解析失败，尝试从文本中提取 JSON + 格式修复
+  }
+
+  try {
+    // 提取第一个完整的 {...} JSON 对象
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      const extracted = cleaned.slice(firstBrace, lastBrace + 1);
+
+      // 尝试直接用提取的文本解析
+      try {
+        return JSON.parse(extracted) as Record<string, unknown>;
+      } catch {
+        // 继续修复流程
+      }
+
+      // 修复后再次尝试
+      const repaired = repairJSON(extracted);
+      try {
+        return JSON.parse(repaired) as Record<string, unknown>;
+      } catch {
+        console.warn('[parseAIResponse] 修复后 JSON 仍无法解析，返回空对象', repaired.slice(0, 200));
+        return {};
+      }
     }
-    throw new Error('AI 返回格式异常，无法解析为JSON');
+
+    // 尝试整体修复
+    const repaired = repairJSON(cleaned);
+    try {
+      return JSON.parse(repaired) as Record<string, unknown>;
+    } catch {
+      console.warn('[parseAIResponse] AI 返回格式异常，返回空对象', cleaned.slice(0, 200));
+      return {};
+    }
+  } catch {
+    console.warn('[parseAIResponse] AI 返回格式异常，返回空对象', cleaned.slice(0, 200));
+    return {};
   }
 }
 
@@ -220,6 +300,8 @@ export function handleAIResponse(
   nodeId: string,
 ): Record<string, unknown> {
   const parsedData = parseAIResponse(responseContent);
-  processAIDataForStore(parsedData, updateNodeData, nodeId);
+  if (Object.keys(parsedData).length > 0) {
+    processAIDataForStore(parsedData, updateNodeData, nodeId);
+  }
   return parsedData;
 }

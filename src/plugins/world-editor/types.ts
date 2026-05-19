@@ -1,4 +1,10 @@
+/**
+ * world-editor 类型定义
+ * 
+ * 面板尺寸常量已迁移至 @/constants，此处 re-export 以保持向后兼容
+ */
 import type { WorldEditorTabId as TabId } from '@/types';
+export { PANEL_WIDTH, PANEL_DEFAULT_HEIGHT, PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT } from '@/constants';
 
 /** 标签页定义 */
 export interface TabDef {
@@ -14,11 +20,5 @@ export const TABS: TabDef[] = [
   { id: 'plot', label: '剧情大纲' },
   { id: 'consistency', label: '一致性检查' },
 ];
-
-/** 面板宽度常量 */
-export const PANEL_WIDTH = 400;
-export const PANEL_DEFAULT_HEIGHT = 900;
-export const PANEL_MIN_HEIGHT = 400;
-export const PANEL_MAX_HEIGHT = 1200;
 
 export type { TabId };
