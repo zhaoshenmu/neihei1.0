@@ -4,14 +4,12 @@
   "category": "核心",
   "icon": "🧠",
   "fixedId": "001",
-  "description": "记忆内核节点，管理上下文记忆与历史对话存储",
+  "description": "掌故司节点，非线性信号灯标签列表，双击标签弹出独立面板，管理大纲锚定绑定等模块",
   "inputs": [
-    { "id": "trigger-in", "label": "触发", "dataType": "signal" },
-    { "id": "data-in", "label": "数据输入", "dataType": "data" }
+    { "id": "data-in", "label": "数据流入", "dataType": "data" }
   ],
   "outputs": [
-    { "id": "trigger-out", "label": "输出", "dataType": "signal" },
-    { "id": "data-out", "label": "数据输出", "dataType": "data" }
+    { "id": "data-out", "label": "数据流出", "dataType": "data" }
   ],
   "defaultData": {}
 }

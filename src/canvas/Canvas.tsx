@@ -35,6 +35,7 @@ import QuickConnectMenu from './QuickConnectMenu';
 import { PANEL_WIDTH, PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT } from '@/constants';
 
 import { useFloatingPanels } from './useFloatingPanels';
+import { ZhangGuSiPanels } from '@/plugins/zhang-gu-si';
 import { useCanvasContextMenu } from './useCanvasContextMenu';
 import { useQuickConnect } from './useQuickConnect';
 import { usePaneCreate } from './usePaneCreate';
@@ -205,6 +206,8 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
   // ── 双击节点 → 打开浮窗 ──
   const onNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
+      // 掌故司节点内部自行管理面板（双击标签弹出），跳过 Canvas 层自动创建
+      if (node.type === 'memory') return;
       openFloatForNode(_event, node);
     },
     [openFloatForNode]
@@ -455,6 +458,7 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
       {renderQuickConnectMenu()}
       {renderPaneCreateMenu()}
       {renderFloatPanels()}
+      <ZhangGuSiPanels />
     </div>
   );
 };

@@ -64,6 +64,22 @@ export const NODE = {
   PORT_SIZE: 8,
 } as const;
 
+/**
+ * 插件节点宽度标准
+ * 所有插件节点的画布渲染宽度必须从此常量引用，禁止在各插件中硬编码
+ * 参考基准：World Editor 节点（minWidth: 200, maxWidth: 300）
+ *
+ * 类型：
+ * - STANDARD: 标准宽度 260px（多数插件节点使用此宽度）
+ * - COMPACT:  紧凑宽度 220px（内容较少的节点）
+ * - WIDE:     宽体宽度 300px（内容较多的节点）
+ */
+export const PLUGIN_NODE_WIDTH = {
+  STANDARD: 260,
+  COMPACT: 220,
+  WIDE: 300,
+} as const;
+
 /** 日志面板常量 */
 export const LOG_PANEL = {
   DEFAULT_HEIGHT: 300,
@@ -94,3 +110,20 @@ export const PANEL_WIDTH = 400;
 export const PANEL_DEFAULT_HEIGHT = 900;
 export const PANEL_MIN_HEIGHT = 400;
 export const PANEL_MAX_HEIGHT = 1200;
+
+/**
+ * 掌故司 - 信号灯样式常量
+ * 所有标签节点的信号灯颜色和发光效果统一在此定义
+ */
+export const ZHANG_GU_SI = {
+  SIGNAL_COLORS: {
+    waiting: '#4a4a4a',
+    running: '#ff69b4',
+    done: '#44cc44',
+  } as Record<string, string>,
+  SIGNAL_GLOWS: {
+    waiting: 'none',
+    running: '0 0 6px rgba(255, 105, 180, 0.6)',
+    done: '0 0 6px rgba(68, 204, 68, 0.4)',
+  } as Record<string, string>,
+} as const;
