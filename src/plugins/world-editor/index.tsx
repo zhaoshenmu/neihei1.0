@@ -7,7 +7,6 @@
  * - 输出：右下 trigger-out（在标签下面）
  */
 import React from 'react';
-import type { NodeProps } from '@xyflow/react';
 import { TABS } from './types';
 import { useWorldEditorFlowStore } from '@/store/world-editor-flow-store';
 import type { SignalStatus, WorldEditorTabId as TabId } from '@/types';
@@ -26,7 +25,7 @@ const SIGNAL_GLOWS: Record<SignalStatus, string> = {
   done: '0 0 6px rgba(68, 204, 68, 0.4)',
 };
 
-const OutlineNode: React.FC<NodeProps> = () => {
+export default function OutlineNode() {
   // 从 store 中读取每个标签页的运行状态
   const stepStatus = useWorldEditorFlowStore((s) => s.stepStatus);
   // 同步 TABS 并读取实时状态
@@ -110,5 +109,3 @@ const OutlineNode: React.FC<NodeProps> = () => {
     </div>
   );
 };
-
-export default OutlineNode;

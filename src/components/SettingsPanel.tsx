@@ -22,7 +22,7 @@ interface SettingsPanelProps {
 const PANEL_WIDTH = 800;
 const PANEL_HEIGHT = 620;
 
-const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
+export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -341,5 +341,3 @@ const EdgeStylePanel: React.FC = () => {
     </div>
   );
 };
-
-export default SettingsPanel;

@@ -2,17 +2,11 @@
  * 自定义贝塞尔曲线边组件
  * 使用 SVG 的 cubic bezier 曲线绘制平滑连线
  */
-import React from 'react';
-import {
-  BaseEdge,
-  getBezierPath,
-  type EdgeProps,
-  type Edge,
-} from '@xyflow/react';
+import { BaseEdge, getBezierPath, type EdgeProps, type Edge } from '@xyflow/react';
 
 export type BezierEdgeType = Edge<Record<string, unknown>, 'bezier'>;
 
-const BezierEdge: React.FC<EdgeProps> = ({
+export default function BezierEdge({
   id,
   sourceX,
   sourceY,
@@ -22,7 +16,7 @@ const BezierEdge: React.FC<EdgeProps> = ({
   targetPosition,
   selected,
   style,
-}) => {
+}: EdgeProps) {
   const [edgePath] = getBezierPath({
     sourceX,
     sourceY,
@@ -45,4 +39,4 @@ const BezierEdge: React.FC<EdgeProps> = ({
   );
 };
 
-export default BezierEdge;
+

@@ -2,12 +2,11 @@
  * 侧边栏组件
  * 展示所有已注册的插件节点，支持拖拽到画布
  */
-import React from 'react';
 import { pluginRegistry } from '@/plugin-system';
 import SidebarItem from './SidebarItem';
 import { theme } from '@/theme/neihei-theme';
 
-const Sidebar: React.FC = () => {
+export default function Sidebar() {
   const manifests = pluginRegistry.getAllManifests();
 
   // 按分类分组
@@ -134,5 +133,3 @@ const Sidebar: React.FC = () => {
     </div>
   );
 };
-
-export default Sidebar;

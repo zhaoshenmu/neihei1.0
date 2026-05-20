@@ -8,9 +8,9 @@
  * 注意：插件加载器要求 index.tsx 有默认导出（React 组件）
  * 即使对 hidden 插件，也必须存在此文件以满足 import.meta.glob 扫描
  */
-import React from 'react';
+
 
 /** 空占位组件 - 满足插件加载器的默认导出要求 */
-const SmartConsolePlaceholder: React.FC = () => null;
-
-export default SmartConsolePlaceholder;
+export default function SmartConsolePlaceholder() {
+  return null;
+}

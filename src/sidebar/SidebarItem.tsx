@@ -11,7 +11,7 @@ interface SidebarItemProps {
   manifest: PluginManifest;
 }
 
-const SidebarItem: React.FC<SidebarItemProps> = ({ manifest }) => {
+export default function SidebarItem({ manifest }: SidebarItemProps) {
   const shortId = pluginRegistry.getFixedId(manifest.type);
   const handleDragStart = (event: React.DragEvent) => {
     event.dataTransfer.setData('application/plugin-type', manifest.type);
@@ -84,5 +84,3 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ manifest }) => {
     </div>
   );
 };
-
-export default SidebarItem;

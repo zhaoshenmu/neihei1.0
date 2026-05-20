@@ -78,7 +78,7 @@ const BTN_CONSTRAINT_LABEL: Record<string, string> = {
   consistency: '输出内容',
 };
 
-const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
+export default function PromptSquare({ isOpen, onClose }: PromptSquareProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -541,5 +541,3 @@ const PromptSquare: React.FC<PromptSquareProps> = ({ isOpen, onClose }) => {
     </div>
   );
 };
-
-export default PromptSquare;

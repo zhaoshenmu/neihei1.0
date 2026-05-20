@@ -4,7 +4,7 @@
  * 显示画布上所有节点的 ID、名称、类型
  * 点击可定位到对应节点
  */
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useCanvasStore } from '@/store/canvas-store';
 import { pluginRegistry } from '@/plugin-system/plugin-registry';
 import { theme } from '@/theme/neihei-theme';
@@ -14,7 +14,7 @@ interface NodeIdTableProps {
   onLocateNode?: (nodeId: string) => void;
 }
 
-const NodeIdTable: React.FC<NodeIdTableProps> = ({ onClose, onLocateNode }) => {
+export default function NodeIdTable({ onClose, onLocateNode }: NodeIdTableProps) {
   const ref = useRef<HTMLDivElement>(null);
   const nodes = useCanvasStore((s) => s.nodes);
 
@@ -226,5 +226,3 @@ const NodeIdTable: React.FC<NodeIdTableProps> = ({ onClose, onLocateNode }) => {
     </div>
   );
 };
-
-export default NodeIdTable;

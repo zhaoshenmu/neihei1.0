@@ -12,7 +12,7 @@ import { theme } from '@/theme/neihei-theme';
 import { useApiConnectionStore } from '@/store/api-connection-store';
 import { useApiSettingsStore } from '@/store/api-settings-store';
 
-const ApiGeneralPanel: React.FC = () => {
+export default function ApiGeneralPanel() {
   const [apiUrl, setApiUrl] = useState('https://api.deepseek.com');
   const [apiKey, setApiKey] = useState('');
   const [modelName, setModelName] = useState('deepseek-chat');
@@ -229,5 +229,3 @@ const ApiGeneralPanel: React.FC = () => {
     </div>
   );
 };
-
-export default ApiGeneralPanel;

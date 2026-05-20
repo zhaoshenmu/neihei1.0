@@ -40,7 +40,7 @@ interface WorldEditorPromptProps {
 const PANEL_WIDTH = 600;
 const PANEL_HEIGHT = 700;
 
-const WorldEditorPrompt: React.FC<WorldEditorPromptProps> = ({
+export default function WorldEditorPrompt({
   isOpen,
   onClose,
   header,
@@ -56,7 +56,7 @@ const WorldEditorPrompt: React.FC<WorldEditorPromptProps> = ({
   constraintValue = '',
   onConstraintChange,
   constraintLabel = '',
-}) => {
+}: WorldEditorPromptProps) {
   const [viewMode, setViewMode] = useState<'editor' | 'history'>('editor');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; versionId: number } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -495,5 +495,3 @@ const WorldEditorPrompt: React.FC<WorldEditorPromptProps> = ({
     </div>
   );
 };
-
-export default WorldEditorPrompt;

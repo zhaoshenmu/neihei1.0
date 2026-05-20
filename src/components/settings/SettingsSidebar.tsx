@@ -108,7 +108,7 @@ const API_OPTIONS: { id: ApiId; label: string }[] = [
   { id: 'image-api', label: '图片生成' },
 ];
 
-const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ items }) => {
+export default function SettingsSidebar({ items }: SettingsSidebarProps) {
   const [openId, setOpenId] = useState<string | null>('general-api');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -264,5 +264,3 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ items }) => {
     </div>
   );
 };
-
-export default SettingsSidebar;

@@ -9,7 +9,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSettingsStore, type ShortcutEntry } from '@/store/settings-store';
 import { theme } from '@/theme/neihei-theme';
 
-const ShortcutEditor: React.FC = () => {
+export default function ShortcutEditor() {
   const shortcuts = useSettingsStore((s) => s.shortcuts);
   const updateShortcut = useSettingsStore((s) => s.updateShortcut);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -188,5 +188,3 @@ const ShortcutEditor: React.FC = () => {
     </div>
   );
 };
-
-export default ShortcutEditor;

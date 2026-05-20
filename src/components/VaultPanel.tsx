@@ -10,7 +10,6 @@
  * - 选中状态再次点击 → 收起（隐藏侧边栏）
  * - 点击不同项 → 切换到对应面板
  */
-import React from 'react';
 import { theme } from '@/theme/neihei-theme';
 import type { VaultTab } from './vault-types';
 
@@ -25,7 +24,7 @@ const tabs: { id: VaultTab; label: string }[] = [
   { id: 'workflows', label: '工作流' },
 ];
 
-const VaultPanel: React.FC<VaultPanelProps> = ({ activeTab, onTabChange }) => {
+export default function VaultPanel({ activeTab, onTabChange }: VaultPanelProps) {
   const handleClick = (tab: VaultTab) => {
     if (activeTab === tab) {
       onTabChange(null);
@@ -106,5 +105,3 @@ const VaultPanel: React.FC<VaultPanelProps> = ({ activeTab, onTabChange }) => {
     </div>
   );
 };
-
-export default VaultPanel;

@@ -91,7 +91,7 @@ class PluginSandbox extends Component<PluginSandboxProps, PluginSandboxState> {
   }
 }
 
-export default PluginSandbox;
+
 
 /**
  * 缓存已包装的沙箱组件
@@ -137,3 +137,5 @@ export function withPluginSandbox(
 export function clearSandboxCache(): void {
   sandboxCache.clear();
 }
+
+export default PluginSandbox;

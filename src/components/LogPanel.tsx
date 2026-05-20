@@ -13,7 +13,7 @@ import { clampPositionWithinCanvas } from '@/utils/canvas-bounds';
 const PANEL_WIDTH = 480;
 const PANEL_HEIGHT = 360;
 
-const LogPanel: React.FC = () => {
+export default function LogPanel() {
   const { logs, clearLogs } = useLogStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -317,5 +317,3 @@ const LogPanel: React.FC = () => {
     </>
   );
 };
-
-export default LogPanel;

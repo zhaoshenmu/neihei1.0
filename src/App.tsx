@@ -16,7 +16,7 @@
  * 关键：Sidebar/WorkflowPanel 绝对定位浮在画布上
  *       画布始终固定，不随面板展开收起而左右移动
  */
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Canvas } from '@/canvas';
 import { Sidebar } from '@/sidebar';
 import { loadAllPlugins } from '@/plugin-system';
@@ -37,7 +37,7 @@ import { useWorldEditorFlowStore } from '@/store/world-editor-flow-store';
 import { useBookshelfStore } from '@/store/bookshelf-store';
 import { pluginRegistry } from '@/plugin-system/plugin-registry';
 
-const App: React.FC = () => {
+export default function App() {
   const [pluginLoaded, setPluginLoaded] = useState(false);
   const consoleCaptureRef = useRef<(() => void) | null>(null);
   const [activeTab, setActiveTab] = useState<VaultTab | null>(null);
@@ -213,4 +213,4 @@ function FloatingPanelSlot() {
   );
 }
 
-export default App;
+

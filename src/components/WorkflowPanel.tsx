@@ -33,7 +33,7 @@ function formatTime(iso: string): string {
   }
 }
 
-const WorkflowPanel: React.FC = () => {
+export default function WorkflowPanel() {
   const {
     workflows,
     selectedIds,
@@ -575,5 +575,3 @@ const WorkflowPanel: React.FC = () => {
     </>
   );
 };
-
-export default WorkflowPanel;

@@ -12,7 +12,7 @@ import { theme } from '@/theme/neihei-theme';
 import { useApiConnectionStore } from '@/store/api-connection-store';
 import { useApiSettingsStore } from '@/store/api-settings-store';
 
-const ApiLocalPanel: React.FC = () => {
+export default function ApiLocalPanel() {
   const [localUrl, setLocalUrl] = useState('http://localhost:1234');
   const [apiKey, setApiKey] = useState('');
   const [modelName, setModelName] = useState('');
@@ -210,5 +210,3 @@ const ApiLocalPanel: React.FC = () => {
     </div>
   );
 };
-
-export default ApiLocalPanel;

@@ -39,7 +39,7 @@ const btnHoverStyle: React.CSSProperties = {
   color: theme.colors.textPrimary,
 };
 
-const CanvasControls: React.FC = () => {
+export default function CanvasControls() {
   const reactFlow = useReactFlow();
 
   const handleZoomIn = () => {
@@ -125,4 +125,4 @@ const CanvasControls: React.FC = () => {
   );
 };
 
-export default CanvasControls;
+

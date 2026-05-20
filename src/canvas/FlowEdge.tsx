@@ -30,7 +30,7 @@ const TAIL_BEADS = [
   { x: -32, r: 0.5, opacity: 0.06 },
 ];
 
-const FlowEdge: React.FC<EdgeProps> = ({
+export default function FlowEdge({
   id,
   sourceX,
   sourceY,
@@ -40,7 +40,7 @@ const FlowEdge: React.FC<EdgeProps> = ({
   targetPosition,
   selected,
   style,
-}) => {
+}: EdgeProps) {
   const [edgePath] = getBezierPath({
     sourceX,
     sourceY,
@@ -215,4 +215,4 @@ const FlowEdge: React.FC<EdgeProps> = ({
   );
 };
 
-export default FlowEdge;
+

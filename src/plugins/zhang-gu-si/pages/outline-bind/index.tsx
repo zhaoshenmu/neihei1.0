@@ -11,9 +11,7 @@
  *
  * ✓ 已阅读 docs/standards/02-代码规范.md
  */
-import React from 'react';
-
-const PageOutlineBind: React.FC = () => {
+export default function PageOutlineBind() {
   return (
     <div
       style={{
@@ -36,6 +34,4 @@ const PageOutlineBind: React.FC = () => {
       </span>
     </div>
   );
-};
-
-export default PageOutlineBind;
+}

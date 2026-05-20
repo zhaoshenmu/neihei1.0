@@ -45,7 +45,7 @@ interface CanvasProps {
   pluginLoaded?: boolean;
 }
 
-const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
+export default function Canvas({ onAddNode, pluginLoaded = false }: CanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = React.useState<{
     getViewport: () => { x: number; y: number; zoom: number };
@@ -463,4 +463,4 @@ const Canvas: React.FC<CanvasProps> = ({ onAddNode, pluginLoaded = false }) => {
   );
 };
 
-export default Canvas;
+

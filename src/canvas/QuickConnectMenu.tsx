@@ -6,7 +6,7 @@
  * - 从输出口(source)拖出 → 显示有输入口的节点（亮色可点），无输入口的灰色
  * - 从输入口(target)拖出 → 显示有输出口的节点（亮色可点），无输出口的灰色
  */
-import React, { useEffect, useRef, useMemo } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { pluginRegistry } from '@/plugin-system/plugin-registry';
 import { theme } from '@/theme/neihei-theme';
 import { getCanvasBounds } from '@/utils/canvas-bounds';
@@ -23,7 +23,7 @@ interface QuickConnectMenuProps {
   fromHandleType?: 'source' | 'target' | null;
 }
 
-const QuickConnectMenu: React.FC<QuickConnectMenuProps> = ({ x, y, onSelect, onClose, fromHandleType }) => {
+export default function QuickConnectMenu({ x, y, onSelect, onClose, fromHandleType }: QuickConnectMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   // 点击菜单外部关闭
@@ -195,4 +195,4 @@ const QuickConnectMenu: React.FC<QuickConnectMenuProps> = ({ x, y, onSelect, onC
   );
 };
 
-export default QuickConnectMenu;
+

@@ -6,7 +6,7 @@
  * 
  * 后续功能扩展：向 items 数组添加新项即可，无需修改组件
  */
-import React, { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { theme } from '@/theme/neihei-theme';
 import { getCanvasBounds } from '@/utils/canvas-bounds';
 
@@ -25,7 +25,7 @@ interface ContextMenuProps {
   onClose: () => void;
 }
 
-const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
+export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   // 点击外部关闭
@@ -138,4 +138,4 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
   );
 };
 
-export default ContextMenu;
+

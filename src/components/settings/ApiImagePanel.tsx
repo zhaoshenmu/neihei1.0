@@ -12,7 +12,7 @@ import { theme } from '@/theme/neihei-theme';
 import { useApiConnectionStore } from '@/store/api-connection-store';
 import { useApiSettingsStore } from '@/store/api-settings-store';
 
-const ApiImagePanel: React.FC = () => {
+export default function ApiImagePanel() {
   const [apiUrl, setApiUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [modelName, setModelName] = useState('');
@@ -197,5 +197,3 @@ const ApiImagePanel: React.FC = () => {
     </div>
   );
 };
-
-export default ApiImagePanel;
